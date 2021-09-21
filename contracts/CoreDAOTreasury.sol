@@ -9,6 +9,10 @@ interface ICOREDAO {
     function issue(address, uint256) external;
 }
 
+/**
+ * @title Protocol treasury contract
+ * @author CVault Finance
+ */
 contract CoreDAOTreasury is OwnableUpgradeable {
     IERC20 public constant LP1_VOUCHER = IERC20(0xF6Dd68031a22c8A3F1e7a424cE8F43a1e1A3be3E);
     IERC20 public constant LP2_VOUCHER = IERC20(0xb8ee07B5ED2FF9dae6C504C9dEe84151F844a591);

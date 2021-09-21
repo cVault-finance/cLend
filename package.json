@@ -1,8 +1,7 @@
 {
   "name": "clend",
   "version": "1.0.0",
-  "description": "",
-  "main": "truffle compile",
+  "description": "Contracts for the CORE DAO and Lending",
   "directories": {
     "test": "test"
   },

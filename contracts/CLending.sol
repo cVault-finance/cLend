@@ -7,8 +7,10 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "./CLendingLibrary.sol";
 import "./types/CLendingTypes.sol";
 
-/// This contract and its holdings are the property of CORE DAO
-/// All unintened use is strictly prohibited.
+/**
+ * @title Lending contract for CORE and CoreDAO
+ * @author CVault Finance
+ */
 contract CLending is OwnableUpgradeable {
     using CLendingLibrary for IERC20;
 
