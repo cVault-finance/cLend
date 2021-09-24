@@ -50,7 +50,7 @@ const config: HardhatUserConfig = {
     excludeContracts: ["contracts/mocks/", "contracts/interfaces/", "contracts/libraries/", "contracts/types/"],
   },
   mocha: {
-    timeout: 20000,
+    timeout: 200000,
     bail: true,
   },
   networks: {

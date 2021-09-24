@@ -7,7 +7,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 interface ICOREDAO {
-    function issue(address, uint256) external;
+    function issue(uint256, address) external;
 }
 
 contract CoreDAOTreasury is OwnableUpgradeable {
@@ -37,7 +37,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         uint256 howManyTokens,
         IERC20Upgradeable token,
         string memory note
-    ) public onlyOwner {
+    ) external onlyOwner {
         if (token == IERC20Upgradeable(address(0))) {
             (bool ok, ) = who.call{value: howManyTokens}("");
             require(ok, "eth send not ok");
@@ -48,29 +48,29 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         emit Payment(who, address(token), howManyTokens, note);
     }
 
-    function wrapVouchers() public {
+    function wrapVouchers() external {
         uint256 balanceLP1User = LP1_VOUCHER.balanceOf(msg.sender);
         uint256 balanceLP2User = LP2_VOUCHER.balanceOf(msg.sender);
         uint256 balanceLP3User = LP3_VOUCHER.balanceOf(msg.sender);
         uint256 mintAmount;
 
         if (balanceLP1User > 0) {
-            LP1_VOUCHER.safeTransferFrom(msg.sender, address(0), balanceLP1User);
+            LP1_VOUCHER.safeTransferFrom(msg.sender, address(0xdead), balanceLP1User);
             mintAmount = mintAmount + (balanceLP1User * DAO_TOKENS_IN_LP1);
         }
 
         if (balanceLP2User > 0) {
-            LP2_VOUCHER.safeTransferFrom(msg.sender, address(0), balanceLP2User);
+            LP2_VOUCHER.safeTransferFrom(msg.sender, address(0xdead), balanceLP2User);
             mintAmount = mintAmount + (balanceLP2User * DAO_TOKENS_IN_LP2);
         }
 
         if (balanceLP3User > 0) {
-            LP3_VOUCHER.safeTransferFrom(msg.sender, address(0), balanceLP3User);
+            LP3_VOUCHER.safeTransferFrom(msg.sender, address(0xdead), balanceLP3User);
             mintAmount = mintAmount + (balanceLP3User * DAO_TOKENS_IN_LP3);
         }
 
         require(mintAmount > 0, "No tokens to wrap");
 
-        coreDAO.issue(msg.sender, mintAmount);
+        coreDAO.issue(mintAmount, msg.sender);
     }
 }

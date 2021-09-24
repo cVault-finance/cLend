@@ -19,7 +19,7 @@ contract CoreDAO is ERC20Votes {
         _mint(treasury, startingCOREDAOAmount);
     }
 
-    function issue(uint256 amount, address to) public {
+    function issue(uint256 amount, address to) external {
         require(msg.sender == CORE_DAO_TREASURY, "Not treasury");
         _mint(to, amount);
     }

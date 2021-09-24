@@ -1,7 +1,10 @@
 import { expect } from "chai"
-import { Signer, utils, constants } from "ethers"
-import { ethers, upgrades } from "hardhat"
+import { Signer, utils, constants, Contract, BigNumber } from "ethers"
+import hre, { ethers, upgrades } from "hardhat"
 import { CoreDAOTreasury, CoreDAO } from "../types"
+import { IERC20__factory } from "../types/factories/IERC20__factory"
+
+const TokenHolder = "0xc5cacb708425961594b63ec171f4df27a9c0d8c9"
 
 describe("CoreDAOTreasury", function () {
   let owner: Signer
@@ -9,9 +12,21 @@ describe("CoreDAOTreasury", function () {
   let bob: Signer
   let treasury: CoreDAOTreasury
   let coredao: CoreDAO
+  let tokenHolder: Signer
+  let LP1_VOUCHER: Contract
+  let LP2_VOUCHER: Contract
+  let LP3_VOUCHER: Contract
+  let DAO_TOKENS_IN_LP1: BigNumber
+  let DAO_TOKENS_IN_LP2: BigNumber
+  let DAO_TOKENS_IN_LP3: BigNumber
   const startingCoreDAOAmount = utils.parseEther("1000")
 
   beforeEach(async function () {
+    await hre.network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [TokenHolder],
+    })
+
     const accounts = await ethers.getSigners()
     owner = accounts[0]
     alice = accounts[1]
@@ -26,6 +41,15 @@ describe("CoreDAOTreasury", function () {
     const CoreDaoFactory = await ethers.getContractFactory("CoreDAO")
     coredao = (await CoreDaoFactory.deploy(startingCoreDAOAmount, treasury.address)) as CoreDAO
     await treasury.initialize(coredao.address)
+
+    tokenHolder = await ethers.provider.getSigner(TokenHolder)
+
+    LP1_VOUCHER = IERC20__factory.connect(await treasury.LP1_VOUCHER(), owner)
+    LP2_VOUCHER = IERC20__factory.connect(await treasury.LP2_VOUCHER(), owner)
+    LP3_VOUCHER = IERC20__factory.connect(await treasury.LP3_VOUCHER(), owner)
+    DAO_TOKENS_IN_LP1 = await treasury.DAO_TOKENS_IN_LP1()
+    DAO_TOKENS_IN_LP2 = await treasury.DAO_TOKENS_IN_LP2()
+    DAO_TOKENS_IN_LP3 = await treasury.DAO_TOKENS_IN_LP3()
   })
 
   describe("check initial state", async () => {
@@ -77,6 +101,50 @@ describe("CoreDAOTreasury", function () {
 
       expect(await mockToken.balanceOf(treasury.address)).to.equal(treasuryBalance.sub(payAmount))
       expect(await mockToken.balanceOf(await alice.getAddress())).to.equal(payAmount)
+    })
+  })
+
+  describe("#wrapVouchers", async () => {
+    it("revert if mint amount is zero", async () => {
+      await expect(treasury.connect(alice).wrapVouchers()).to.be.revertedWith("No tokens to wrap")
+    })
+
+    it("wrap vouchers", async () => {
+      const MockEthDistributorFactory = await ethers.getContractFactory("MockEthDistributor")
+      const mockEthDistributor = await MockEthDistributorFactory.deploy()
+
+      await alice.sendTransaction({
+        to: mockEthDistributor.address,
+        value: utils.parseEther("1"),
+      })
+      await mockEthDistributor.distribute(await tokenHolder.getAddress())
+
+      const LP1_BALANCE = utils.parseEther("1")
+      const LP2_BALANCE = utils.parseEther("0.001")
+      const LP3_BALANCE = utils.parseEther("3")
+
+      await LP1_VOUCHER.connect(tokenHolder).transfer(await alice.getAddress(), LP1_BALANCE)
+      await LP1_VOUCHER.connect(alice).approve(treasury.address, LP1_BALANCE)
+      await LP2_VOUCHER.connect(tokenHolder).transfer(await alice.getAddress(), LP2_BALANCE)
+      await LP2_VOUCHER.connect(alice).approve(treasury.address, LP2_BALANCE)
+      await LP3_VOUCHER.connect(tokenHolder).transfer(await alice.getAddress(), LP3_BALANCE)
+      await LP3_VOUCHER.connect(alice).approve(treasury.address, LP3_BALANCE)
+
+      const deadAddress = "0x000000000000000000000000000000000000dead"
+      const deadBalanceLp1 = await LP1_VOUCHER.balanceOf(deadAddress)
+      const deadBalanceLp2 = await LP2_VOUCHER.balanceOf(deadAddress)
+      const deadBalanceLp3 = await LP3_VOUCHER.balanceOf(deadAddress)
+
+      await treasury.connect(alice).wrapVouchers()
+
+      const mintAmount = LP1_BALANCE.mul(DAO_TOKENS_IN_LP1).add(LP2_BALANCE.mul(DAO_TOKENS_IN_LP2)).add(LP3_BALANCE.mul(DAO_TOKENS_IN_LP3))
+      expect(await LP1_VOUCHER.balanceOf(await alice.getAddress())).to.equal("0")
+      expect(await LP1_VOUCHER.balanceOf(deadAddress)).to.equal(deadBalanceLp1.add(LP1_BALANCE))
+      expect(await LP2_VOUCHER.balanceOf(await alice.getAddress())).to.equal("0")
+      expect(await LP2_VOUCHER.balanceOf(deadAddress)).to.equal(deadBalanceLp2.add(LP2_BALANCE))
+      expect(await LP3_VOUCHER.balanceOf(await alice.getAddress())).to.equal("0")
+      expect(await LP3_VOUCHER.balanceOf(deadAddress)).to.equal(deadBalanceLp3.add(LP3_BALANCE))
+      expect(await coredao.balanceOf(await alice.getAddress())).to.equal(mintAmount)
     })
   })
 })
