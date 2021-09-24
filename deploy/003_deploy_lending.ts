@@ -38,7 +38,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   console.log(`Adding CLending ${CLending.address} to CORE noFeeList...`)
 
-  if (network.live) {
+  if (network.live && !process.env.HARDHAT_NETWORK_LIVE) {
     await transferChecker.editNoFeeRecipentList(CLending.address, true)
   } else {
     await impersonate(constants.CORE_MULTISIG)
