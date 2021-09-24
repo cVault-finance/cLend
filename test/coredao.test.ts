@@ -13,6 +13,8 @@ describe("CoreDAO", function () {
   const SYMBOL = "coreDAO"
 
   beforeEach(async function () {
+    await deployments.fixture()
+
     const accounts = await ethers.getSigners()
     treasury = accounts[0]
     alice = accounts[1]

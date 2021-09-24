@@ -1,6 +1,6 @@
 import { expect } from "chai"
 import { Signer, utils, constants, Contract, BigNumber } from "ethers"
-import hre, { ethers, upgrades } from "hardhat"
+import hre, { ethers, upgrades, deployments } from "hardhat"
 import { CoreDAOTreasury, CoreDAO } from "../types"
 import { IERC20__factory } from "../types/factories/IERC20__factory"
 
@@ -22,6 +22,8 @@ describe("CoreDAOTreasury", function () {
   const startingCoreDAOAmount = utils.parseEther("1000")
 
   beforeEach(async function () {
+    await deployments.fixture()
+
     await hre.network.provider.request({
       method: "hardhat_impersonateAccount",
       params: [TokenHolder],
@@ -62,7 +64,7 @@ describe("CoreDAOTreasury", function () {
     })
   })
 
-  describe("#pay", async () => {
+  describe("#pay function", async () => {
     const payAmount = utils.parseEther("1")
 
     it("revert if msg.sender is not owner", async () => {
@@ -71,7 +73,7 @@ describe("CoreDAOTreasury", function () {
       )
     })
 
-    it("pay ether", async () => {
+    it("should pay ether if token address is zero", async () => {
       const treasuryBalance = utils.parseEther("10")
       await owner.sendTransaction({
         to: treasury.address,
@@ -88,7 +90,7 @@ describe("CoreDAOTreasury", function () {
       expect(await alice.getBalance()).to.equal(aliceBalanceBefore.add(payAmount))
     })
 
-    it("pay ERC20 token", async () => {
+    it("should pay ERC20 token if token address is not zero", async () => {
       const MockTokenFactory = await ethers.getContractFactory("MockToken")
       const mockToken = await MockTokenFactory.deploy()
       const treasuryBalance = utils.parseEther("100")
@@ -104,12 +106,12 @@ describe("CoreDAOTreasury", function () {
     })
   })
 
-  describe("#wrapVouchers", async () => {
+  describe("#wrapVouchers function", async () => {
     it("revert if mint amount is zero", async () => {
       await expect(treasury.connect(alice).wrapVouchers()).to.be.revertedWith("No tokens to wrap")
     })
 
-    it("wrap vouchers", async () => {
+    it("should wrap vouchers", async () => {
       const MockEthDistributorFactory = await ethers.getContractFactory("MockEthDistributor")
       const mockEthDistributor = await MockEthDistributorFactory.deploy()
 
