@@ -18,10 +18,14 @@ describe("CoreDAOTreasury", function () {
     bob = accounts[2]
 
     const CoreDAOTreasuryFactory = await ethers.getContractFactory("CoreDAOTreasury")
-    treasury = (await upgrades.deployProxy(CoreDAOTreasuryFactory, [])) as CoreDAOTreasury
+    treasury = (await upgrades.deployProxy(CoreDAOTreasuryFactory, {
+      kind: "transparent",
+      initializer: false,
+    })) as CoreDAOTreasury
 
     const CoreDaoFactory = await ethers.getContractFactory("CoreDAO")
     coredao = (await CoreDaoFactory.deploy(startingCoreDAOAmount, treasury.address)) as CoreDAO
+    await treasury.initialize(coredao.address)
   })
 
   describe("check initial state", async () => {
@@ -29,9 +33,9 @@ describe("CoreDAOTreasury", function () {
       expect(await treasury.owner()).to.equal(await owner.getAddress())
     })
 
-    // it("check coredao", async () => {
-    //   expect(await treasury.coreDAO()).to.equal(coredao.address)
-    // })
+    it("check coredao", async () => {
+      expect(await treasury.coreDAO()).to.equal(coredao.address)
+    })
   })
 
   describe("#pay", async () => {
@@ -43,7 +47,7 @@ describe("CoreDAOTreasury", function () {
       )
     })
 
-    it.only("pay ether", async () => {
+    it("pay ether", async () => {
       const treasuryBalance = utils.parseEther("10")
       await owner.sendTransaction({
         to: treasury.address,
