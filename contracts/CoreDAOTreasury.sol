@@ -9,6 +9,10 @@ interface ICOREDAO {
     function issue(address, uint256) external;
 }
 
+/**
+ * @title Protocol treasury contract
+ * @author CVault Finance
+ */
 contract CoreDAOTreasury is OwnableUpgradeable {
     IERC20 public constant LP1_VOUCHER = IERC20(0xF6Dd68031a22c8A3F1e7a424cE8F43a1e1A3be3E);
     IERC20 public constant LP2_VOUCHER = IERC20(0xb8ee07B5ED2FF9dae6C504C9dEe84151F844a591);
@@ -35,7 +39,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
     ) public onlyOwner {
         if (token == IERC20(address(0))) {
             (bool ok, ) = who.call{value: howManyTokens}("");
-            require(ok, "eth send not ok");
+            require(ok, "CLending: PAYMENT_FAILED");
         } else {
             token.transfer(who, howManyTokens);
         }
@@ -64,7 +68,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
             mintAmount = mintAmount + (balanceLP3User * DAO_TOKENS_IN_LP3);
         }
 
-        require(mintAmount > 0, "No tokens to wrap");
+        require(mintAmount > 0, "CLending: NOTHING_TO_WRAP");
 
         coreDAO.issue(msg.sender, mintAmount);
     }

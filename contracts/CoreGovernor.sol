@@ -7,6 +7,10 @@ import "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
 import "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
 import "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
 
+/**
+ * @title OZ Governor contract implementation
+ * @author CVault Finance
+ */
 contract CoreGovernor is
     Governor,
     GovernorCountingSimple,

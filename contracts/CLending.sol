@@ -7,8 +7,10 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "./CLendingLibrary.sol";
 import "./types/CLendingTypes.sol";
 
-/// This contract and its holdings are the property of CORE DAO
-/// All unintened use is strictly prohibited.
+/**
+ * @title Lending contract for CORE and CoreDAO
+ * @author CVault Finance
+ */
 contract CLending is OwnableUpgradeable {
     using CLendingLibrary for IERC20;
 
@@ -42,7 +44,7 @@ contract CLending is OwnableUpgradeable {
     }
 
     receive() external payable {
-        revert("ETH is not accepted");
+        revert("CLending: ETH_NOT_ACCEPTED");
     }
 
     // It should be noted that this will change everything backwards in time meaning some people might be liquidated right away
@@ -59,14 +61,14 @@ contract CLending is OwnableUpgradeable {
     function repayLoan(IERC20 token, uint256 amount) public {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         (uint256 totalDebt, ) = liquidateDeliquent(msg.sender);
-        require(totalDebt > 0, "No debt to repay");
+        require(totalDebt > 0, "CLending: NOT_DEBT");
 
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
-        require(tokenCollateralAbility > 0, "Not accepted for loan collateral");
+        require(tokenCollateralAbility > 0, "CLending: NOT_ACCEPTED");
 
         uint256 offeredCollateralValue = amount * tokenCollateralAbility;
         uint256 _accruedInterest = accruedInterest(msg.sender);
-        require(offeredCollateralValue > _accruedInterest, "not enough to pay interest"); // Has to be done because we have to update debt time
+        require(offeredCollateralValue > _accruedInterest, "CLending: INSUFFICIENT_AMOUNT"); // Has to be done because we have to update debt time
 
         // Note that acured interest is never bigger than 10% of supplied collateral because of liquidateDeliquent call above
         if (offeredCollateralValue > totalDebt) {
@@ -95,17 +97,17 @@ contract CLending is OwnableUpgradeable {
     ) private {
         liquidateDeliquent(user);
 
-        require(token != DAI, "DAI is not allowed as collateral");
+        require(token != DAI, "CLending: NOT_DAI");
 
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
-        require(tokenCollateralAbility != 0, "Not accepted as loan collateral");
+        require(tokenCollateralAbility != 0, "CLending: NOT_ACCEPTED");
 
         token.safeTransferFrom(user, amount);
 
         // We pay interest already accrued with the same mechanism as repay fn
         uint256 _accruedInterest = accruedInterest(user) / tokenCollateralAbility;
 
-        require(_accruedInterest <= amount, "Not enough to repay interest");
+        require(_accruedInterest <= amount, "CLending: INSUFFICIENT_AMOUNT");
         amount = amount - _accruedInterest;
 
         // We add collateral into the user struct
@@ -141,12 +143,12 @@ contract CLending is OwnableUpgradeable {
         uint256 totalDebt = userTotalDebt(user); // This is with interest
         uint256 totalCollateral = userCollateralValue(user);
 
-        require(totalDebt <= totalCollateral && !isLiquidable(totalDebt, totalCollateral), "Over debted");
+        require(totalDebt <= totalCollateral && !isLiquidable(totalDebt, totalCollateral), "CLending: OVER_DEBTED");
 
         uint256 userRemainingCollateral = totalCollateral - totalDebt;
         if (amountBorrow > userRemainingCollateral) {
             uint256 totalBorrowed = totalDebt + amountBorrow;
-            require(totalBorrowed <= totalCollateral, "Too much borrowed");
+            require(totalBorrowed <= totalCollateral, "CLending: TOO_MUCH_BORROWED");
             amountBorrow = totalCollateral - totalBorrowed;
         }
 
@@ -198,8 +200,8 @@ contract CLending is OwnableUpgradeable {
     function reclaimAllCollateral() public {
         (uint256 totalDebt, uint256 totalCollateral) = liquidateDeliquent(msg.sender);
 
-        require(totalCollateral > 0, "No collateral to reclaim or collateral liquidated");
-        require(totalDebt == 0, "Still in debt");
+        require(totalCollateral > 0, "CLending: NOTHING_TO_CLAIM");
+        require(totalDebt == 0, "CLending: STILL_IN_DEBT");
 
         for (uint256 i = 0; i < debtorSummary[msg.sender].collateral.length; i++) {
             uint256 supplied = debtorSummary[msg.sender].collateral[i].suppliedCollateral;
