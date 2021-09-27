@@ -12,7 +12,6 @@ import "hardhat-watcher"
 import "solidity-coverage"
 import "hardhat-deploy"
 import "hardhat-dependency-compiler"
-import "@openzeppelin/hardhat-upgrades"
 import "./tasks"
 
 import { HardhatNetworkHDAccountsUserConfig, HardhatUserConfig } from "hardhat/types"

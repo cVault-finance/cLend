@@ -1,6 +1,6 @@
 import { expect } from "chai"
 import { Signer, utils, constants, Contract, BigNumber } from "ethers"
-import hre, { ethers, upgrades, deployments } from "hardhat"
+import hre, { ethers, deployments } from "hardhat"
 import { CoreDAOTreasury, CoreDAO } from "../types"
 import { IERC20__factory } from "../types/factories/IERC20__factory"
 
@@ -19,7 +19,6 @@ describe("CoreDAOTreasury", function () {
   let DAO_TOKENS_IN_LP1: BigNumber
   let DAO_TOKENS_IN_LP2: BigNumber
   let DAO_TOKENS_IN_LP3: BigNumber
-  const startingCoreDAOAmount = utils.parseEther("1000")
 
   beforeEach(async function () {
     await deployments.fixture()
@@ -34,15 +33,8 @@ describe("CoreDAOTreasury", function () {
     alice = accounts[1]
     bob = accounts[2]
 
-    const CoreDAOTreasuryFactory = await ethers.getContractFactory("CoreDAOTreasury")
-    treasury = (await upgrades.deployProxy(CoreDAOTreasuryFactory, {
-      kind: "transparent",
-      initializer: false,
-    })) as CoreDAOTreasury
-
-    const CoreDaoFactory = await ethers.getContractFactory("CoreDAO")
-    coredao = (await CoreDaoFactory.deploy(startingCoreDAOAmount, treasury.address)) as CoreDAO
-    await treasury.initialize(coredao.address)
+    coredao = await ethers.getContract("CoreDAO")
+    treasury = await ethers.getContract("CoreDAOTreasury")
 
     tokenHolder = await ethers.provider.getSigner(TokenHolder)
 

@@ -70,7 +70,5 @@
     "typechain": "^5.1.2",
     "typescript": "^4.4.2"
   },
-  "dependencies": {
-    "@openzeppelin/hardhat-upgrades": "^1.10.0"
-  }
+  "dependencies": {}
 }
