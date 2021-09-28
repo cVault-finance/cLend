@@ -224,9 +224,9 @@ contract CLending is OwnableUpgradeable {
 
     function liquidate(address user) private {
 
-        for (uint256 i = 0; i < debtorSummary[msg.sender].collateral.length; i++) {
-            uint256 supplied = debtorSummary[msg.sender].collateral[i].suppliedCollateral;
-            address currentCollateralAddress = debtorSummary[msg.sender].collateral[i].collateralAddress;
+        for (uint256 i = 0; i < debtorSummary[user].collateral.length; i++) {
+            uint256 supplied = debtorSummary[user].collateral[i].suppliedCollateral;
+            address currentCollateralAddress = debtorSummary[user].collateral[i].collateralAddress;
 
             if(msg.sender == user ||// User liquidates himself no incentive.
                currentCollateralAddress == address(coreDAO) || // no incentive for coreDAO to maintain floor, burned anyway
