@@ -98,7 +98,7 @@ contract CLending is OwnableUpgradeable {
         token.safeTransferFrom(msg.sender, amount);
 
         // Send the accrued interest back to the DAO
-        token.transfer(coreDAOTreasury, _accruedInterest / tokenCollateralAbility);
+        safeTransfer(address(token), coreDAOTreasury, _accruedInterest / tokenCollateralAbility);
     }
 
     function _supplyCollateral(
@@ -166,7 +166,7 @@ contract CLending is OwnableUpgradeable {
         }
 
         editAmountBorrowed(userSummaryStorage, amountBorrow);
-        DAI.transfer(user, amountBorrow);
+        DAI.transfer(user, amountBorrow); // DAI transfer function doesnt need safe transfer
     }
 
     function _addCollateral(
