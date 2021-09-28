@@ -14,7 +14,7 @@ describe("CoreGovernor", async () => {
   beforeEach(async () => {
     await deployments.fixture()
 
-    coredao = await ethers.getContract("CoreDao")
+    coredao = await ethers.getContract("CoreDAO")
     coreGovernor = await ethers.getContract("CoreGovernor")
   })
 

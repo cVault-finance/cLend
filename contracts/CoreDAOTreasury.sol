@@ -55,17 +55,29 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         uint256 mintAmount;
 
         if (balanceLP1User > 0) {
-            LP1_VOUCHER.safeTransferFrom(msg.sender, address(0xdead), balanceLP1User);
+            LP1_VOUCHER.safeTransferFrom(
+                msg.sender,
+                address(0x000000000000000000000000000000000000dEaD),
+                balanceLP1User
+            );
             mintAmount = mintAmount + (balanceLP1User * DAO_TOKENS_IN_LP1);
         }
 
         if (balanceLP2User > 0) {
-            LP2_VOUCHER.safeTransferFrom(msg.sender, address(0xdead), balanceLP2User);
+            LP2_VOUCHER.safeTransferFrom(
+                msg.sender,
+                address(0x000000000000000000000000000000000000dEaD),
+                balanceLP2User
+            );
             mintAmount = mintAmount + (balanceLP2User * DAO_TOKENS_IN_LP2);
         }
 
         if (balanceLP3User > 0) {
-            LP3_VOUCHER.safeTransferFrom(msg.sender, address(0xdead), balanceLP3User);
+            LP3_VOUCHER.safeTransferFrom(
+                msg.sender,
+                address(0x000000000000000000000000000000000000dEaD),
+                balanceLP3User
+            );
             mintAmount = mintAmount + (balanceLP3User * DAO_TOKENS_IN_LP3);
         }
 
