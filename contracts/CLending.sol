@@ -16,13 +16,17 @@ contract CLending is OwnableUpgradeable {
 
     IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     IERC20 public constant CORE_TOKEN = IERC20(0x62359Ed7505Efc61FF1D56fEF82158CcaffA23D7);
+    address private constant DEADBEEF = 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF;
 
     mapping(address => DebtorSummary) public debtorSummary;
     mapping(address => uint256) public collaterabilityOfToken;
+    mapping(address => address) public liquidationBeneficiaryOfToken;
 
     address public coreDAOTreasury;
     uint256 public yearlyPercentInterest;
     uint256 public loanDefaultThresholdPercent;
+    IERC20 public coreDAO; // initialized hence not immutable but should be
+
 
     /// @dev upfront storage allocation for further upgrades
     uint256[52] private _____gap;
@@ -41,6 +45,9 @@ contract CLending is OwnableUpgradeable {
 
         collaterabilityOfToken[address(CORE_TOKEN)] = 5500;
         collaterabilityOfToken[address(_daoToken)] = 1;
+        liquidationBeneficiaryOfToken[address(CORE_TOKEN)] = DEADBEEF;
+        liquidationBeneficiaryOfToken[address(_daoToken)] = DEADBEEF;
+        coreDAO = _daoToken;
     }
 
     receive() external payable {
@@ -57,6 +64,11 @@ contract CLending is OwnableUpgradeable {
         collaterabilityOfToken[token] = newCollaterability;
     }
 
+    function editTokenLiquiationBeneficiary(address token, address newBeneficiary) public onlyOwner {
+        require(token != address(CORE_TOKEN) && token != address(coreDAO)); // Those should stay burned or floor doesnt hold
+        if(newBeneficiary == address(0)) { newBeneficiary=DEADBEEF; } // covers not send to 0 tokens
+        liquidationBeneficiaryOfToken[token] = newBeneficiary;
+    }
     // Repays the loan supplying collateral and not adding it
     function repayLoan(IERC20 token, uint256 amount) public {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
@@ -109,6 +121,7 @@ contract CLending is OwnableUpgradeable {
 
         require(_accruedInterest <= amount, "CLending: INSUFFICIENT_AMOUNT");
         amount = amount - _accruedInterest;
+        safeTransfer(address(DAI), coreDAOTreasury, _accruedInterest);
 
         // We add collateral into the user struct
         _addCollateral(userSummaryStorage, token, amount);
@@ -188,15 +201,54 @@ contract CLending is OwnableUpgradeable {
     }
 
     // Liquidates people in default
-    function liquidateDeliquent(address user) private returns (uint256 totalDebt, uint256 totalCollateral) {
+    function liquidateDeliquent(address user) public returns (uint256 totalDebt, uint256 totalCollateral) {
         totalDebt = userTotalDebt(user); // This is with interest
         totalCollateral = userCollateralValue(user);
 
         if (isLiquidable(totalDebt, totalCollateral)) {
             // user is in default, wipe their debt and collateral
-            delete debtorSummary[user];
+            liquidate(user);
             return (0, 0);
         }
+    }
+
+    function liquidate(address user) private {
+
+        for (uint256 i = 0; i < debtorSummary[msg.sender].collateral.length; i++) {
+            uint256 supplied = debtorSummary[msg.sender].collateral[i].suppliedCollateral;
+            address currentCollateralAddress = debtorSummary[msg.sender].collateral[i].collateralAddress;
+
+            if(msg.sender == user ||// User liquidates himself no incentive.
+               currentCollateralAddress == address(coreDAO) || // no incentive for coreDAO to maintain floor, burned anyway
+               currentCollateralAddress == address(CORE_TOKEN)) { // no incentive for core to maintain floor, and its burned anyway
+                safeTransfer(
+                    currentCollateralAddress, //token
+                    liquidationBeneficiaryOfToken[currentCollateralAddress], // to
+                    supplied //amount
+                );
+            } else { // Someone else liquidates user 0.5% incentive (1/200)
+                safeTransfer(
+                    currentCollateralAddress, //token
+                    liquidationBeneficiaryOfToken[currentCollateralAddress], // to
+                    supplied * 199 / 200 //amount
+                );
+                safeTransfer(
+                    currentCollateralAddress, //token
+                    msg.sender, // to
+                    supplied / 200 //amount
+                );
+            }
+
+
+        }
+
+        delete debtorSummary[user];
+
+    }
+
+    function safeTransfer(address token, address to, uint value) private {
+        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(bytes4(keccak256(bytes('transfer(address,uint256)'))), to, value));
+        require(success && (data.length == 0 || abi.decode(data, (bool))), 'UniswapV2: TRANSFER_FAILED');
     }
 
     function reclaimAllCollateral() public {
@@ -206,8 +258,11 @@ contract CLending is OwnableUpgradeable {
         require(totalDebt == 0, "CLending: STILL_IN_DEBT");
 
         for (uint256 i = 0; i < debtorSummary[msg.sender].collateral.length; i++) {
-            uint256 supplied = debtorSummary[msg.sender].collateral[i].suppliedCollateral;
-            IERC20(debtorSummary[msg.sender].collateral[i].collateralAddress).transfer(msg.sender, supplied);
+            safeTransfer(
+                    debtorSummary[msg.sender].collateral[i].collateralAddress, //token
+                    msg.sender, // to
+                    debtorSummary[msg.sender].collateral[i].suppliedCollateral //amount
+            );
         }
 
         // User doesnt have collateral anymore and paid off debt, bye
