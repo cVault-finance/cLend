@@ -142,7 +142,7 @@ contract CLending is OwnableUpgradeable {
     ) private {
         uint256 totalDebt = userTotalDebt(user); // This is with interest
         uint256 totalCollateral = userCollateralValue(user);
-
+        require(amountBorrow > 0, "Borrow something");
         require(totalDebt <= totalCollateral && !isLiquidable(totalDebt, totalCollateral), "CLending: OVER_DEBTED");
 
         uint256 userRemainingCollateral = totalCollateral - totalDebt;
@@ -161,6 +161,8 @@ contract CLending is OwnableUpgradeable {
         IERC20 token,
         uint256 amount
     ) private {
+
+        require(amount != 0, "Supply collateral");
         bool alreadySupplied;
         // Loops over all provided collateral, checks if its there and if it is edit it
         for (uint256 i = 0; i < userSummaryStorage.collateral.length; i++) {
