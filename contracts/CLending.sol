@@ -61,10 +61,20 @@ contract CLending is OwnableUpgradeable {
     }
 
     function editTokenCollaterability(address token, uint256 newCollaterability) public onlyOwner {
+        require(liquidationBeneficiaryOfToken[token] != address(0), "Token not added");
         collaterabilityOfToken[token] = newCollaterability;
     }
 
+    function addNewToken(address token, address liquidationBeneficiary, uint256 collaterabilityInUSD) public onlyOwner {
+        require(collaterabilityOfToken[token] == 0 && liquidationBeneficiaryOfToken[token] == address(0), "Token already added");
+        if(liquidationBeneficiary == address(0)) { liquidationBeneficiary=DEADBEEF; } // covers not send to 0 tokens
+        liquidationBeneficiaryOfToken[token] = liquidationBeneficiary;
+        collaterabilityOfToken[token] = collaterabilityInUSD;
+    }
+
     function editTokenLiquiationBeneficiary(address token, address newBeneficiary) public onlyOwner {
+        // Since beneficiary defaults to deadbeef it cannot be 0 if its been added before
+        require(liquidationBeneficiaryOfToken[token] != address(0), "token not added");
         require(token != address(CORE_TOKEN) && token != address(coreDAO)); // Those should stay burned or floor doesnt hold
         if(newBeneficiary == address(0)) { newBeneficiary=DEADBEEF; } // covers not send to 0 tokens
         liquidationBeneficiaryOfToken[token] = newBeneficiary;
