@@ -87,7 +87,7 @@ contract CLending is OwnableUpgradeable {
 
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
         uint256 offeredCollateralValue = amount * tokenCollateralAbility;
-        require(offeredCollateralValue > 0, "CLending: NOT_ENOUGH_COLLATERAL"); // covers both cases its a not supported token and 0 case
+        require(offeredCollateralValue > 0, "CLending: NOT_ENOUGH_COLLATERAL_OFFERED"); // covers both cases its a not supported token and 0 case
 
         uint256 _accruedInterest = accruedInterest(msg.sender);
         require(offeredCollateralValue > _accruedInterest, "CLending: INSUFFICIENT_AMOUNT"); // Has to be done because we have to update debt time
