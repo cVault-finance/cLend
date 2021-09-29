@@ -1,22 +1,29 @@
 import { expect } from "chai"
 import { ethers, deployments } from "hardhat"
 import { CLending, IERC20 } from "../types"
-import { blockNumber, getBigNumber, impersonate } from "./utilities"
+import { blockNumber, getBigNumber, impersonate, latest } from "./utilities"
 import { constants } from "../constants"
-import { BigNumber } from "ethers"
-
-let cLending: CLending
-let coreDAOTreasury
-let yearlyPercentInterest
-let loanDefaultThresholdPercent
-let coreCollaterability
-let coreDaiCollaterability
-let CORE: IERC20
-let DAI: IERC20
+import { BigNumber, Signer, utils } from "ethers"
 
 describe("Lending", function () {
+  let cLending: CLending
+  let coreDAOTreasury
+  let yearlyPercentInterest
+  let loanDefaultThresholdPercent
+  let coreCollaterability
+  let coreDaiCollaterability
+  let CORE: IERC20
+  let DAI: IERC20
+  let owner: Signer
+  let alice: Signer
+  let bob: Signer
+
   beforeEach(async function () {
-    const [deployer, account1] = await ethers.getSigners()
+    const accounts = await ethers.getSigners()
+    owner = accounts[0]
+    alice = accounts[1]
+    bob = accounts[2]
+
     await deployments.fixture()
 
     cLending = await ethers.getContract("CLending")
@@ -29,40 +36,146 @@ describe("Lending", function () {
     CORE = await ethers.getContractAt<IERC20>("IERC20", constants.CORE)
     DAI = await ethers.getContractAt<IERC20>("IERC20", constants.DAI)
 
-    // Give some CORE to account1
+    // Give some CORE to alice
     await impersonate(constants.CORE_MULTISIG)
     const coreMultiSigSigner = await ethers.getSigner(constants.CORE_MULTISIG)
-    await CORE.connect(coreMultiSigSigner).transfer(account1.address, getBigNumber(123))
+    await CORE.connect(coreMultiSigSigner).transfer(await alice.getAddress(), getBigNumber(123))
 
     // Fund the lending contract with DAI
     await DAI.connect(coreMultiSigSigner).transfer(cLending.address, await DAI.balanceOf(coreMultiSigSigner.address))
   })
 
-  it("should let you put in CORE as collateral and get 5500 credit in each", async () => {
-    const [deployer, account1] = await ethers.getSigners()
-
-    const collateral = getBigNumber(20, 18)
-    await CORE.connect(account1).approve(cLending.address, collateral)
-    await cLending.connect(account1).addCollateral(constants.CORE, collateral)
-
-    const credit = await cLending.userCollateralValue(account1.address)
-
-    // Should be coreCollaterability core * collateral * 1e18
-    expect(credit).to.equal(coreCollaterability.mul(collateral))
+  describe("#receive function", () => {
+    it("revert if ether sent to cLend", async () => {
+      await expect(
+        alice.sendTransaction({
+          to: cLending.address,
+          value: utils.parseEther("1"),
+        })
+      ).to.revertedWith("ETH is not accepted")
+    })
   })
 
-  it("should let the guy borrow DAI for the amount", async () => {
-    const [deployer, account1] = await ethers.getSigners()
+  describe("#changeLoanTerms function", () => {
+    it("revert if msg.sender is not owner", async () => {
+      await expect(cLending.connect(alice).changeLoanTerms(10, 120)).to.revertedWith("Ownable: caller is not the owner")
+    })
+
+    it("should update loan terms and emit LoanTermsChanged event", async () => {
+      const newYearlyPercentInterest = 10
+      const newLoanDefaultThresholdPercent = 130
+      const tx = await cLending.connect(owner).changeLoanTerms(newYearlyPercentInterest, newLoanDefaultThresholdPercent)
+      expect(await cLending.yearlyPercentInterest()).to.be.equal(newYearlyPercentInterest)
+      expect(await cLending.loanDefaultThresholdPercent()).to.be.equal(newLoanDefaultThresholdPercent)
+      expect(tx).to.emit(cLending, "LoanTermsChanged").withArgs(newYearlyPercentInterest, newLoanDefaultThresholdPercent)
+    })
+  })
+
+  describe("#editTokenCollaterability function", () => {
+    it("revert if msg.sender is not owner", async () => {
+      await expect(cLending.connect(alice).editTokenCollaterability(CORE.address, 120)).to.revertedWith("Ownable: caller is not the owner")
+    })
+
+    it("should update token collaterability and emit TokenCollaterabilityEdited event", async () => {
+      const newCollaterability = 5000
+      const tx = await cLending.connect(owner).editTokenCollaterability(CORE.address, newCollaterability)
+      expect(await cLending.collaterabilityOfToken(CORE.address)).to.be.equal(newCollaterability)
+      expect(tx).to.emit(cLending, "TokenCollaterabilityEdited").withArgs(CORE.address, newCollaterability)
+    })
+  })
+
+  describe("#addCollateral function", () => {
     const collateral = getBigNumber(20, 18)
-    await CORE.connect(account1).approve(cLending.address, collateral)
-    await cLending.connect(account1).addCollateral(constants.CORE, collateral)
 
-    const credit = await cLending.userCollateralValue(account1.address)
+    beforeEach(async () => {
+      await CORE.connect(alice).approve(cLending.address, collateral)
+    })
 
-    // Should be coreCollaterability core * collateral * 1e18
-    expect(credit).to.equal(coreCollaterability.mul(collateral))
-    await cLending.connect(account1).borrow(credit)
-    expect(await DAI.balanceOf(account1.address)).to.equal(credit)
+    it("revert if token is DAI", async () => {
+      await expect(cLending.connect(alice).addCollateral(DAI.address, collateral)).to.revertedWith("DAI is not allowed as collateral")
+    })
+
+    it("revert if amount is zero", async () => {
+      await expect(cLending.connect(alice).addCollateral(CORE.address, 0)).to.revertedWith("Amount is zero")
+    })
+
+    it("revert if token is not accepted", async () => {
+      const MockTokenFactory = await ethers.getContractFactory("MockToken")
+      const mockToken = await MockTokenFactory.connect(alice).deploy()
+      await mockToken.connect(alice).approve(cLending.address, collateral)
+      await expect(cLending.connect(alice).addCollateral(mockToken.address, collateral)).to.revertedWith("Not accepted as loan collateral")
+    })
+
+    it("should let you put in CORE as collateral and get 5500 credit in each", async () => {
+      const tx = await cLending.connect(alice).addCollateral(constants.CORE, collateral)
+
+      const currentTime = await latest()
+      const userDebtorSummary = await cLending.debtorSummary(await alice.getAddress())
+      expect(userDebtorSummary.timeLastBorrow).to.be.equal(currentTime)
+      const credit = await cLending.userCollateralValue(await alice.getAddress())
+
+      // Should be coreCollaterability core * collateral * 1e18
+      expect(credit).to.equal(coreCollaterability.mul(collateral))
+
+      expect(tx)
+        .to.emit(cLending, "CollateralAdded")
+        .withArgs(await alice.getAddress(), constants.CORE, collateral, collateral)
+    })
+
+    // TODO check revert when accuredInterest
+  })
+
+  describe("#borrow function", () => {
+    const collateral = getBigNumber(20, 18)
+
+    beforeEach(async () => {
+      await CORE.connect(alice).approve(cLending.address, collateral)
+      await cLending.connect(alice).addCollateral(constants.CORE, collateral)
+    })
+
+    it("revert if amount is zero", async () => {
+      await expect(cLending.connect(alice).borrow("0")).to.revertedWith("Amount is zero")
+    })
+
+    it("revert if no collateral", async () => {
+      const borrowAmount = getBigNumber(5000, 18)
+      await expect(cLending.connect(bob).borrow(borrowAmount)).to.revertedWith("Amount is zero")
+    })
+
+    it("should borrow DAI and update debt", async () => {
+      const borrowAmount = getBigNumber(5000, 18)
+      const lendingDaiBalanceBefore = await DAI.balanceOf(cLending.address)
+      const tx = await cLending.connect(alice).borrow(borrowAmount)
+      const currentTime = await latest()
+
+      expect(await DAI.balanceOf(await alice.getAddress())).to.equal(borrowAmount)
+      expect(await DAI.balanceOf(cLending.address)).to.be.equal(lendingDaiBalanceBefore.sub(borrowAmount))
+      expect(tx)
+        .to.emit(cLending, "Borrowed")
+        .withArgs(await alice.getAddress(), borrowAmount)
+
+      const debtorSummary = await cLending.debtorSummary(await alice.getAddress())
+      expect(debtorSummary.amountDAIBorrowed).to.be.equal(borrowAmount)
+      expect(debtorSummary.timeLastBorrow).to.be.equal(currentTime)
+    })
+
+    it("should borrow maximum amount if user want to borrow too much than collateral", async () => {
+      const borrowAmount = getBigNumber(500000, 18)
+      const borrowMax = collateral.mul(coreCollaterability).mul(BigNumber.from("100")).div(loanDefaultThresholdPercent)
+      const lendingDaiBalanceBefore = await DAI.balanceOf(cLending.address)
+      const tx = await cLending.connect(alice).borrow(borrowAmount)
+      const currentTime = await latest()
+
+      expect(await DAI.balanceOf(await alice.getAddress())).to.equal(borrowMax)
+      expect(await DAI.balanceOf(cLending.address)).to.be.equal(lendingDaiBalanceBefore.sub(borrowMax))
+      expect(tx)
+        .to.emit(cLending, "Borrowed")
+        .withArgs(await alice.getAddress(), borrowMax)
+
+      const debtorSummary = await cLending.debtorSummary(await alice.getAddress())
+      expect(debtorSummary.amountDAIBorrowed).to.be.equal(borrowMax)
+      expect(debtorSummary.timeLastBorrow).to.be.equal(currentTime)
+    })
   })
 
   it("should correctly add 20% a year interest", async () => {

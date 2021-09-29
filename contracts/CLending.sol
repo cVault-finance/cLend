@@ -14,6 +14,9 @@ contract CLending is OwnableUpgradeable {
     using CLendingLibrary for IERC20;
 
     event LoanTermsChanged(uint256 yearlyPercentInterest, uint256 loanDefaultThresholdPercent);
+    event TokenCollaterabilityEdited(address indexed token, uint256 collaterability);
+    event CollateralAdded(address indexed user, address indexed token, uint256 amount, uint256 amountAdded);
+    event Borrowed(address indexed user, uint256 amount);
 
     IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     IERC20 public constant CORE_TOKEN = IERC20(0x62359Ed7505Efc61FF1D56fEF82158CcaffA23D7);
@@ -50,18 +53,19 @@ contract CLending is OwnableUpgradeable {
     }
 
     // It should be noted that this will change everything backwards in time meaning some people might be liquidated right away
-    function changeLoanTerms(uint256 _yearlyPercentInterest, uint256 _loanDefaultThresholdPercent) public onlyOwner {
+    function changeLoanTerms(uint256 _yearlyPercentInterest, uint256 _loanDefaultThresholdPercent) external onlyOwner {
         yearlyPercentInterest = _yearlyPercentInterest;
         loanDefaultThresholdPercent = _loanDefaultThresholdPercent;
         emit LoanTermsChanged(_yearlyPercentInterest, _loanDefaultThresholdPercent);
     }
 
-    function editTokenCollaterability(address token, uint256 newCollaterability) public onlyOwner {
+    function editTokenCollaterability(address token, uint256 newCollaterability) external onlyOwner {
         collaterabilityOfToken[token] = newCollaterability;
+        emit TokenCollaterabilityEdited(token, newCollaterability);
     }
 
     // Repays the loan supplying collateral and not adding it
-    function repayLoan(IERC20 token, uint256 amount) public {
+    function repayLoan(IERC20 token, uint256 amount) external {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         (uint256 totalDebt, ) = _liquidateDeliquent(msg.sender);
         require(totalDebt > 0, "No debt to repay");
@@ -104,6 +108,7 @@ contract CLending is OwnableUpgradeable {
 
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
         require(tokenCollateralAbility != 0, "Not accepted as loan collateral");
+        require(amount > 0, "Amount is zero");
 
         token.safeTransferFrom(user, amount);
 
@@ -111,13 +116,17 @@ contract CLending is OwnableUpgradeable {
         uint256 _accruedInterest = accruedInterest(user) / tokenCollateralAbility;
 
         require(_accruedInterest <= amount, "Not enough to repay interest");
-        amount = amount - _accruedInterest;
+        uint256 amountToAdd = amount - _accruedInterest;
 
         // We add collateral into the user struct
-        _addCollateral(userSummaryStorage, token, amount);
+        if (amountToAdd > 0) {
+            _addCollateral(userSummaryStorage, token, amountToAdd);
+        }
+
+        emit CollateralAdded(user, address(token), amount, amountToAdd);
     }
 
-    function addCollateral(IERC20 token, uint256 amount) public {
+    function addCollateral(IERC20 token, uint256 amount) external {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         _supplyCollateral(userSummaryStorage, msg.sender, token, amount);
         _updateDebtTime(userSummaryStorage);
@@ -127,13 +136,13 @@ contract CLending is OwnableUpgradeable {
         IERC20 tokenCollateral,
         uint256 amountCollateral,
         uint256 amountBorrow
-    ) public {
+    ) external {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         _supplyCollateral(userSummaryStorage, msg.sender, tokenCollateral, amountCollateral);
         _borrow(userSummaryStorage, msg.sender, amountBorrow);
     }
 
-    function borrow(uint256 amount) public {
+    function borrow(uint256 amount) external {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         _borrow(userSummaryStorage, msg.sender, amount);
     }
@@ -145,17 +154,17 @@ contract CLending is OwnableUpgradeable {
     ) private {
         (uint256 totalDebt, uint256 totalCollateral) = _liquidateDeliquent(user);
 
-        require(totalDebt <= totalCollateral, "Over debted");
+        uint256 totalBorrowed = totalDebt + amountBorrow;
+        uint256 borrowMax = (totalCollateral * 100) / loanDefaultThresholdPercent;
 
-        uint256 userRemainingCollateral = totalCollateral - totalDebt;
-        if (amountBorrow > userRemainingCollateral) {
-            uint256 totalBorrowed = totalDebt + amountBorrow;
-            require(totalBorrowed <= totalCollateral, "Too much borrowed");
-            amountBorrow = totalCollateral - totalBorrowed;
+        if (totalBorrowed > borrowMax) {
+            amountBorrow = borrowMax - totalDebt;
         }
 
         _addAmountBorrowed(userSummaryStorage, amountBorrow);
         DAI.safeTransfer(user, amountBorrow);
+
+        emit Borrowed(user, amountBorrow);
     }
 
     function _addCollateral(
@@ -199,7 +208,7 @@ contract CLending is OwnableUpgradeable {
         }
     }
 
-    function reclaimAllCollateral() public {
+    function reclaimAllCollateral() external {
         (uint256 totalDebt, uint256 totalCollateral) = _liquidateDeliquent(msg.sender);
 
         require(totalCollateral > 0, "No collateral to reclaim or collateral liquidated");
@@ -236,6 +245,8 @@ contract CLending is OwnableUpgradeable {
     }
 
     function _addAmountBorrowed(DebtorSummary storage userSummaryStorage, uint256 addToBorrowed) private {
+        require(addToBorrowed > 0, "Amount is zero");
+
         userSummaryStorage.amountDAIBorrowed = userSummaryStorage.amountDAIBorrowed + addToBorrowed;
         _updateDebtTime(userSummaryStorage);
     }
