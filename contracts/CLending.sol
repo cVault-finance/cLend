@@ -158,13 +158,43 @@ contract CLending is OwnableUpgradeable {
         _borrow(userSummaryStorage, msg.sender, amount);
     }
 
+
+    // Lets users repay interest with their remaining collateral
+    function repayInterestWithRemainingMargin() public {
+        _repayInterestWithRemainingMargin(
+            debtorSummary[msg.sender],
+            accruedInterest(msg.sender),
+            userCollateralValue(msg.sender)
+        );
+    }
+
+    // Takes remaining collateral users have and repays their accured interest with it and then updates new amount borrowed
+    function _repayInterestWithRemainingMargin(
+        DebtorSummary storage userSummaryStorage, 
+        uint256 accruedInterest,
+        uint256 totalCollateral) private returns(uint256) {
+        uint256 daiBorrowed = userSummaryStorage.amountDAIBorrowed;
+        if(accruedInterest == 0) { return daiBorrowed; } // No interest so we don't need to repay
+        uint256 newTotalDebt = daiBorrowed + accruedInterest;
+
+        require(totalCollateral > newTotalDebt, "CLending: CANNOT_REPAY_INTEREST");
+        addToAmountBorrowed(userSummaryStorage, accruedInterest);
+
+        return newTotalDebt;
+    }
+
     function _borrow(
         DebtorSummary storage userSummaryStorage,
         address user,
         uint256 amountBorrow
     ) private {
-        uint256 totalDebt = userTotalDebt(user); // This is with interest
         uint256 totalCollateral = userCollateralValue(user);
+        uint256 totalDebt = _repayInterestWithRemainingMargin( 
+                                    userSummaryStorage,
+                                    accruedInterest(user),
+                                    totalCollateral);  // This fn doesnt change totalcollateral
+        // hence forth accrued inteterest is always 0
+
         require(amountBorrow > 0, "Borrow something");
         require(totalDebt <= totalCollateral && !isLiquidable(totalDebt, totalCollateral), "CLending: OVER_DEBTED");
 
@@ -175,7 +205,7 @@ contract CLending is OwnableUpgradeable {
             amountBorrow = totalCollateral - totalBorrowed;
         }
 
-        editAmountBorrowed(userSummaryStorage, amountBorrow);
+        addToAmountBorrowed(userSummaryStorage, amountBorrow);
         DAI.transfer(user, amountBorrow); // DAI transfer function doesnt need safe transfer
     }
 
@@ -297,10 +327,10 @@ contract CLending is OwnableUpgradeable {
     function accruedInterest(address user) public view returns (uint256) {
         DebtorSummary memory userSummaryMemory = debtorSummary[user];
         uint256 timeSinceLastLoan = block.timestamp - userSummaryMemory.timeLastBorrow;
-        return (userSummaryMemory.amountDAIBorrowed * yearlyPercentInterest * timeSinceLastLoan) / 365 days; // 365days * 100
+        return (userSummaryMemory.amountDAIBorrowed * yearlyPercentInterest * timeSinceLastLoan) / 365_00 days; // 365days * 100
     }
 
-    function editAmountBorrowed(DebtorSummary storage userSummaryStorage, uint256 addToBorrowed) private {
+    function addToAmountBorrowed(DebtorSummary storage userSummaryStorage, uint256 addToBorrowed) private {
         userSummaryStorage.amountDAIBorrowed = userSummaryStorage.amountDAIBorrowed + addToBorrowed;
         updateDebtTime(userSummaryStorage);
     }
