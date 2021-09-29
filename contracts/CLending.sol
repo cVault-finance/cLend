@@ -45,6 +45,9 @@ contract CLending is OwnableUpgradeable {
 
         collaterabilityOfToken[address(CORE_TOKEN)] = 5500;
         collaterabilityOfToken[address(_daoToken)] = 1;
+        collaterabilityOfToken[address(DAI)] = 1; // Not adding liquidation beneficiary serves as a safeguard in changing this as well
+                                                  // DAI will never be liquidated because its not accepted as collateral only as a way of repay
+
         liquidationBeneficiaryOfToken[address(CORE_TOKEN)] = DEADBEEF;
         liquidationBeneficiaryOfToken[address(_daoToken)] = DEADBEEF;
         coreDAO = _daoToken;
@@ -118,7 +121,7 @@ contract CLending is OwnableUpgradeable {
     ) private {
         liquidateDeliquent(user);
 
-        require(token != DAI, "CLending: NOT_DAI");
+        require(token != DAI, "CLending: DAI_IS_ONLY_FOR_REPAYMENT");
 
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
         require(tokenCollateralAbility != 0, "CLending: NOT_ACCEPTED");
