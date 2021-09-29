@@ -86,21 +86,20 @@ contract CLending is OwnableUpgradeable {
         require(totalDebt > 0, "CLending: NOT_DEBT");
 
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
-        require(tokenCollateralAbility > 0, "CLending: NOT_ACCEPTED");
-
         uint256 offeredCollateralValue = amount * tokenCollateralAbility;
+        require(offeredCollateralValue > 0, "CLending: NOT_ENOUGH_COLLATERAL"); // covers both cases its a not supported token and 0 case
+
         uint256 _accruedInterest = accruedInterest(msg.sender);
         require(offeredCollateralValue > _accruedInterest, "CLending: INSUFFICIENT_AMOUNT"); // Has to be done because we have to update debt time
-
         // Note that acured interest is never bigger than 10% of supplied collateral because of liquidateDeliquent call above
         if (offeredCollateralValue > totalDebt) {
             amount = totalDebt / tokenCollateralAbility;
             userSummaryStorage.amountDAIBorrowed = 0;
+            // Updating debt time is not nessesary since accrued interest on 0 will always be 0
         } else {
             userSummaryStorage.amountDAIBorrowed =
                 userSummaryStorage.amountDAIBorrowed -
-                offeredCollateralValue -
-                _accruedInterest;
+                (offeredCollateralValue -_accruedInterest); // Brackets is important as their collateral is garnished by accrued interest repayment
             // Send the repayment amt
             updateDebtTime(userSummaryStorage);
         }
@@ -127,11 +126,11 @@ contract CLending is OwnableUpgradeable {
         token.safeTransferFrom(user, amount);
 
         // We pay interest already accrued with the same mechanism as repay fn
-        uint256 _accruedInterest = accruedInterest(user) / tokenCollateralAbility;
+        uint256 accruedInterestInToken = accruedInterest(user) / tokenCollateralAbility;
 
-        require(_accruedInterest <= amount, "CLending: INSUFFICIENT_AMOUNT");
-        amount = amount - _accruedInterest;
-        safeTransfer(address(DAI), coreDAOTreasury, _accruedInterest);
+        require(accruedInterestInToken <= amount, "CLending: INSUFFICIENT_AMOUNT");
+        amount = amount - accruedInterestInToken;
+        safeTransfer(address(token), coreDAOTreasury, accruedInterestInToken);
 
         // We add collateral into the user struct
         _addCollateral(userSummaryStorage, token, amount);
