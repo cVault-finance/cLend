@@ -11,5 +11,5 @@ struct DebtorSummary {
 
 struct Collateral {
     address collateralAddress;
-    uint256 suppliedCollateral;
+    uint256 amountCollateral;
 }
