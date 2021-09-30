@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 
 pragma solidity ^0.8.0;
+// TODO check diffecences with safemath
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
@@ -68,7 +69,9 @@ contract CLending is OwnableUpgradeable {
         collaterabilityOfToken[token] = newCollaterability;
     }
 
-    function addNewToken(address token, address liquidationBeneficiary, uint256 collaterabilityInUSD) public onlyOwner {
+    // warning this does not support different amount than 18 decimals
+    function addNewToken(address token, address liquidationBeneficiary, uint256 collaterabilityInUSD, uint256 decimals) public onlyOwner {
+        require(decimals == 18, "This contract doesn't support tokens with amount of decimals different than 18. Do not use this token. Or everything will break");
         require(collaterabilityOfToken[token] == 0 && liquidationBeneficiaryOfToken[token] == address(0), "Token already added");
         if(liquidationBeneficiary == address(0)) { liquidationBeneficiary=DEADBEEF; } // covers not send to 0 tokens
         liquidationBeneficiaryOfToken[token] = liquidationBeneficiary;
@@ -104,7 +107,7 @@ contract CLending is OwnableUpgradeable {
                 userSummaryStorage.amountDAIBorrowed -
                 (offeredCollateralValue -_accruedInterest); // Brackets is important as their collateral is garnished by accrued interest repayment
             // Send the repayment amt
-            updateDebtTime(userSummaryStorage);
+            wipeInterestOwed(userSummaryStorage);
         }
 
         token.safeTransferFrom(msg.sender, amount);
@@ -123,21 +126,20 @@ contract CLending is OwnableUpgradeable {
 
         require(token != DAI, "CLending: DAI_IS_ONLY_FOR_REPAYMENT");
 
-        uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
+        uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)]; // essentially a whitelist
         require(tokenCollateralAbility != 0, "CLending: NOT_ACCEPTED");
 
         token.safeTransferFrom(user, amount);
 
         // We pay interest already accrued with the same mechanism as repay fn
-        uint256 accruedInterestInToken = accruedInterest(user) / tokenCollateralAbility;
+        uint256 accruedInterestInToken = accruedInterest(user) / tokenCollateralAbility; // eg. 6000 accrued interest and 1 CORE == 1 
 
-        require(accruedInterestInToken <= amount, "CLending: INSUFFICIENT_AMOUNT");
-        amount = amount - accruedInterestInToken;
+        require(accruedInterestInToken < amount, "CLending: INSUFFICIENT_AMOUNT"); //  we dont want 0 amount
         safeTransfer(address(token), coreDAOTreasury, accruedInterestInToken);
 
         // We add collateral into the user struct
-        _addCollateral(userSummaryStorage, token, amount);
-        updateDebtTime(userSummaryStorage);
+        _addCollateral(userSummaryStorage, token, amount - accruedInterestInToken);
+        wipeInterestOwed(userSummaryStorage); // wipes accrued interest
     }
 
     function addCollateral(IERC20 token, uint256 amount) public {
@@ -319,10 +321,10 @@ contract CLending is OwnableUpgradeable {
 
     function addToAmountBorrowed(DebtorSummary storage userSummaryStorage, uint256 addToBorrowed) private {
         userSummaryStorage.amountDAIBorrowed = userSummaryStorage.amountDAIBorrowed + addToBorrowed;
-        updateDebtTime(userSummaryStorage);
+        wipeInterestOwed(userSummaryStorage);
     }
 
-    function updateDebtTime(DebtorSummary storage userSummaryStorage) private {
+    function wipeInterestOwed(DebtorSummary storage userSummaryStorage) private {
         userSummaryStorage.timeLastBorrow = block.timestamp;
     }
 }
