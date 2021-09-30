@@ -185,6 +185,7 @@ contract CLending is OwnableUpgradeable {
         if (amountBorrowWithInterest > userRemainingCollateral) { // If the amount borrow is higher than remaining collateral
             require(userRemainingCollateral > userAccruedInterest,"CLending : CANT_BORROW");
             amountBorrow = userRemainingCollateral - userAccruedInterest;
+            amountBorrowWithInterest = userRemainingCollateral;
             // We cap the borrow at remaining collateral - accred interest
             // cause accrued interest is repaid automatically and mandatory
         }
