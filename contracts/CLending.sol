@@ -137,12 +137,12 @@ contract CLending is OwnableUpgradeable {
 
         // We add collateral into the user struct
         _addCollateral(userSummaryStorage, token, amount);
+        updateDebtTime(userSummaryStorage);
     }
 
     function addCollateral(IERC20 token, uint256 amount) public {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         _supplyCollateral(userSummaryStorage, msg.sender, token, amount);
-        updateDebtTime(userSummaryStorage);
     }
 
     function addCollateralAndBorrow(
