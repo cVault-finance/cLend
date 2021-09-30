@@ -161,54 +161,38 @@ contract CLending is OwnableUpgradeable {
     }
 
 
-    // Lets users repay interest with their remaining collateral
-    function repayInterestWithRemainingMargin() public {
-        _repayInterestWithRemainingMargin(
-            debtorSummary[msg.sender],
-            accruedInterest(msg.sender),
-            userCollateralValue(msg.sender)
-        );
-    }
 
-    // Takes remaining collateral users have and repays their accured interest with it and then updates new amount borrowed
-    function _repayInterestWithRemainingMargin(
-        DebtorSummary storage userSummaryStorage, 
-        uint256 accruedInterest,
-        uint256 totalCollateral) private returns(uint256) {
-        uint256 daiBorrowed = userSummaryStorage.amountDAIBorrowed;
-        if(accruedInterest == 0) { return daiBorrowed; } // No interest so we don't need to repay
-        uint256 newTotalDebt = daiBorrowed + accruedInterest;
-
-        require(totalCollateral > newTotalDebt, "CLending: CANNOT_REPAY_INTEREST");
-        addToAmountBorrowed(userSummaryStorage, accruedInterest);
-
-        return newTotalDebt;
-    }
-
+    // Repays all users accumulated interst with margin
+    // Then checks if borrow can be preformed, adds it to total borrowed as well as transfers the dai to user
     function _borrow(
         DebtorSummary storage userSummaryStorage,
         address user,
         uint256 amountBorrow
     ) private {
-        uint256 totalCollateral = userCollateralValue(user);
-        uint256 totalDebt = _repayInterestWithRemainingMargin( 
-                                    userSummaryStorage,
-                                    accruedInterest(user),
-                                    totalCollateral);  // This fn doesnt change totalcollateral
-        // hence forth accrued inteterest is always 0
 
-        require(amountBorrow > 0, "Borrow something");
+        // We take users accrued interest and the amount borrowed
+        // We repay the accured interest from the loan amount, by adding it on top of the loan amount
+        uint256 totalCollateral = userCollateralValue(user);
+        uint256 userAccruedInterest = accruedInterest(user);
+        uint256 totalAmountBorrowed = userSummaryStorage.amountDAIBorrowed;
+        uint256 totalDebt = userAccruedInterest + totalAmountBorrowed;
+
+        amountBorrow = amountBorrow + userAccruedInterest; // We add interst to the amount borrowed and repay interest automatically
+        require(amountBorrow > 0, "Borrow something"); // This is intentional after adding accured interest
         require(totalDebt <= totalCollateral && !isLiquidable(totalDebt, totalCollateral), "CLending: OVER_DEBTED");
 
         uint256 userRemainingCollateral = totalCollateral - totalDebt;
-        if (amountBorrow > userRemainingCollateral) {
-            uint256 totalBorrowed = totalDebt + amountBorrow;
-            require(totalBorrowed <= totalCollateral, "CLending: TOO_MUCH_BORROWED");
-            amountBorrow = totalCollateral - totalBorrowed;
+        if (amountBorrow > userRemainingCollateral) { // If the amount borrow is higher than remaining collateral
+            require(userRemainingCollateral > userAccruedInterest,"CLending : CANT_BORROW");
+            amountBorrow = userRemainingCollateral - userAccruedInterest;
+            // We cap the borrow at remaining collateral - accred interest
+            // cause accrued interest is repaid automatically and mandatory
         }
 
         addToAmountBorrowed(userSummaryStorage, amountBorrow);
         DAI.transfer(user, amountBorrow); // DAI transfer function doesnt need safe transfer
+        DAI.transfer(coreDAOTreasury, userAccruedInterest); // accured interest is in DAI, and we added it to amount borrowed
+
     }
 
     function _addCollateral(
