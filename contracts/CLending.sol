@@ -275,7 +275,7 @@ contract CLending is OwnableUpgradeable {
 
     function safeTransfer(address token, address to, uint value) private {
         (bool success, bytes memory data) = token.call(abi.encodeWithSelector(bytes4(keccak256(bytes('transfer(address,uint256)'))), to, value));
-        require(success && (data.length == 0 || abi.decode(data, (bool))), 'UniswapV2: TRANSFER_FAILED');
+        require(success && (data.length == 0 || abi.decode(data, (bool))), 'cLending: TRANSFER_FAILED');
     }
 
     function reclaimAllCollateral() public {
