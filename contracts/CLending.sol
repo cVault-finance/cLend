@@ -22,6 +22,7 @@ contract CLending is OwnableUpgradeable {
     mapping(address => DebtorSummary) public debtorSummary;
     mapping(address => uint256) public collaterabilityOfToken;
     mapping(address => address) public liquidationBeneficiaryOfToken;
+    mapping(address => bool) public tokenRetired;
 
     address public coreDAOTreasury;
     uint256 public yearlyPercentInterest;
@@ -64,14 +65,15 @@ contract CLending is OwnableUpgradeable {
         loanDefaultThresholdPercent = _loanDefaultThresholdPercent;
     }
 
-    
+
     // TODO add market supported check so can retire tokens to 0
     function editTokenCollaterability(address token, uint256 newCollaterability) public onlyOwner {
         require(liquidationBeneficiaryOfToken[token] != address(0), "Token not added");
         if(newCollaterability == 0) {
-            // TODO retire
+            tokenRetired[token] = true;
         } else {
             collaterabilityOfToken[token] = newCollaterability;
+            tokenRetired[token] = false;
         }
     }
 
@@ -109,6 +111,7 @@ contract CLending is OwnableUpgradeable {
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
         uint256 offeredCollateralValue = amount * tokenCollateralAbility;
         require(offeredCollateralValue > 0, "CLending: NOT_ENOUGH_COLLATERAL_OFFERED"); // covers both cases its a not supported token and 0 case
+        require(tokenRetired[address(token)] == false, "CLending : TOKEN_RETIRED");
 
         uint256 _accruedInterest = accruedInterest(msg.sender);
         require(offeredCollateralValue >= _accruedInterest, "CLending: INSUFFICIENT_AMOUNT"); // Has to be done because we have to update debt time
@@ -148,6 +151,8 @@ contract CLending is OwnableUpgradeable {
         require(token != DAI, "CLending: DAI_IS_ONLY_FOR_REPAYMENT");
 
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)]; // essentially a whitelist
+        require(tokenRetired[address(token)] == false, "CLending : TOKEN_RETIRED");
+
         require(tokenCollateralAbility != 0, "CLending: NOT_ACCEPTED");
 
         token.safeTransferFrom(user, amount);
@@ -320,6 +325,10 @@ contract CLending is OwnableUpgradeable {
 
         for (uint256 i = 0; i < userCollateralTokens.length; i++) {
             Collateral memory currentToken = userCollateralTokens[i];
+
+            if(tokenRetired[currentToken.collateralAddress]) {
+                continue; // If token is retired it has no value
+            }
             uint256 tokenDebit = collaterabilityOfToken[currentToken.collateralAddress] *
                 currentToken.amountCollateral;
             collateral = collateral + tokenDebit;
