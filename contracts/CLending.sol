@@ -177,19 +177,19 @@ contract CLending is OwnableUpgradeable {
         uint256 totalAmountBorrowed = userSummaryStorage.amountDAIBorrowed;
         uint256 totalDebt = userAccruedInterest + totalAmountBorrowed;
 
-        amountBorrow = amountBorrow + userAccruedInterest; // We add interst to the amount borrowed and repay interest automatically
+        uint256 amountBorrowWithInterest = amountBorrow + userAccruedInterest; // We add interst to the amount borrowed and repay interest automatically
         require(amountBorrow > 0, "Borrow something"); // This is intentional after adding accured interest
         require(totalDebt <= totalCollateral && !isLiquidable(totalDebt, totalCollateral), "CLending: OVER_DEBTED");
 
         uint256 userRemainingCollateral = totalCollateral - totalDebt;
-        if (amountBorrow > userRemainingCollateral) { // If the amount borrow is higher than remaining collateral
+        if (amountBorrowWithInterest > userRemainingCollateral) { // If the amount borrow is higher than remaining collateral
             require(userRemainingCollateral > userAccruedInterest,"CLending : CANT_BORROW");
             amountBorrow = userRemainingCollateral - userAccruedInterest;
             // We cap the borrow at remaining collateral - accred interest
             // cause accrued interest is repaid automatically and mandatory
         }
 
-        addToAmountBorrowed(userSummaryStorage, amountBorrow);
+        addToAmountBorrowed(userSummaryStorage, amountBorrowWithInterest);
         DAI.transfer(user, amountBorrow); // DAI transfer function doesnt need safe transfer
         DAI.transfer(coreDAOTreasury, userAccruedInterest); // accured interest is in DAI, and we added it to amount borrowed
 
