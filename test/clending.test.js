@@ -258,6 +258,41 @@ contract('cLending Tests', ([x3, revert, james, joe, john, trashcan]) => {
 
 
 
+    it("Repayment of accured interest should be taken out of outstanding debt when using the borrow function", async () => {
+        await initializeLendingContracts(20,110,5500);
+        // This should have initiated CORE and COREDAO into the contract
+        
+        const amountCoreDaoDeposited = tBN18(20000);
+        // add 10,000 DAI in collateral
+        await clend.addCollateral(coreDAO.address, amountCoreDaoDeposited ,{from :CORE_RICH});
+
+        await clend.borrow(tBN18(10000),{from:CORE_RICH});
+        await advanceTimeAndBlock(duration.weeks(25).toNumber()) // less than half a year
+        
+
+        // We deposited 20,000 margin and borrowed 10,000
+        // And waited about half a year so we should have 1000 in accured interest 
+        const treasuryDAIBefore = await dai.balanceOf(treasury.address)
+        await clend.borrow(1,{from:CORE_RICH});
+        const treasuryDAIAfter = await dai.balanceOf(treasury.address)
+
+        await assert((await clend.userCollateralValue(CORE_RICH)).eq(amountCoreDaoDeposited)) // collateral value should stay the same
+        await assert((await clend.accruedInterest(CORE_RICH)).eq(tBN18(0))); // interst should be paid off
+        await assert(
+            (await clend.userTotalDebt(CORE_RICH)).gt(tBN18(10950)) &&
+            (await clend.userTotalDebt(CORE_RICH)).lt(tBN18(11050))
+        ); // total debt should be increased by about 10% from the borrow
+        
+        // Treasury should get around 1000 more dai
+        const changeInDAIOfTreasury = treasuryDAIAfter.sub(treasuryDAIBefore);
+        await assert(
+            changeInDAIOfTreasury.gt(tBN18(950)) &&
+            changeInDAIOfTreasury.lt(tBN18(1050))
+        ) // total debt should be increased by about 10% from the borrow    
+    });
+
+
+
 
 
     const tBN18 = (numTokens) => tBN(numTokens,18)
