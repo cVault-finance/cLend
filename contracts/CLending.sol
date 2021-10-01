@@ -44,6 +44,7 @@ contract CLending is OwnableUpgradeable {
         coreDAOTreasury = _coreDAOTreasury;
         yearlyPercentInterest = _yearlyPercentInterest;
         loanDefaultThresholdPercent = _loanDefaultThresholdPercent;
+        require(loanDefaultThresholdPercent > 100, "Instant liquidation would be possible");
 
         collaterabilityOfToken[address(CORE_TOKEN)] = 5500;
         collaterabilityOfToken[address(_daoToken)] = 1;
