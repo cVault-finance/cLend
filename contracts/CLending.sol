@@ -7,6 +7,8 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "./CLendingLibrary.sol";
 import "./types/CLendingTypes.sol";
+import "hardhat/console.sol";
+// TODO remove console logs
 
 /**
  * @title Lending contract for CORE and CoreDAO
@@ -37,7 +39,8 @@ contract CLending is OwnableUpgradeable {
         address _coreDAOTreasury,
         IERC20 _daoToken,
         uint256 _yearlyPercentInterest,
-        uint256 _loanDefaultThresholdPercent
+        uint256 _loanDefaultThresholdPercent,
+        uint256 _coreTokenCollaterability
     ) public initializer {
         __Ownable_init();
 
@@ -46,7 +49,7 @@ contract CLending is OwnableUpgradeable {
         loanDefaultThresholdPercent = _loanDefaultThresholdPercent;
         require(loanDefaultThresholdPercent > 100, "Instant liquidation would be possible");
 
-        collaterabilityOfToken[address(CORE_TOKEN)] = 5500;
+        collaterabilityOfToken[address(CORE_TOKEN)] = _coreTokenCollaterability;
         collaterabilityOfToken[address(_daoToken)] = 1;
         collaterabilityOfToken[address(DAI)] = 1; // Not adding liquidation beneficiary serves as a safeguard in changing this as well
                                                   // DAI will never be liquidated because its not accepted as collateral only as a way of repay
@@ -249,7 +252,7 @@ contract CLending is OwnableUpgradeable {
     }
 
     function isLiquidable(uint256 totalDebt, uint256 totalCollateral) private view returns (bool) {
-        return (totalCollateral * loanDefaultThresholdPercent) / 100 > totalDebt;
+        return totalDebt > (totalCollateral * loanDefaultThresholdPercent) / 100;
     }
 
     // Liquidates people in default
@@ -258,6 +261,7 @@ contract CLending is OwnableUpgradeable {
         totalCollateral = userCollateralValue(user);
 
         if (isLiquidable(totalDebt, totalCollateral)) {
+            console.log("User is liquidatable, liqudating");
             // user is in default, wipe their debt and collateral
             liquidate(user);
             return (0, 0);

@@ -114,3 +114,4 @@ coverage.json
 .env
 .DS_Store
 /bin
+yarn.lock

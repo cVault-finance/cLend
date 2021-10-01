@@ -35,9 +35,9 @@ contract CoreDAOTreasury is OwnableUpgradeable {
     receive() external payable {}
 
     function pay(
+        IERC20 token,
         address payable who,
         uint256 howManyTokens,
-        IERC20 token,
         string memory note
     ) public onlyOwner {
         if (token == IERC20(address(0))) {
