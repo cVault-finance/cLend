@@ -12,7 +12,7 @@ contract('cLending Tests', ([x3, revert, james, joe, john, trashcan]) => {
 
     const CORE_RICH = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436" // deployer
     const DAI_RICH = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436" // deployer
-
+    const BURN_ADDRESS = "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"
 
     let clend;
     let treasury;
@@ -148,6 +148,57 @@ contract('cLending Tests', ([x3, revert, james, joe, john, trashcan]) => {
         )
 
     });
+
+    it("Correctly liquidates at 110% of collateral", async () => {
+        await initializeLendingContracts(20,110,5500);
+        // This should have initiated CORE and COREDAO into the contract
+        
+        const amountCoreDaoDeposited = tBN18(10000);
+        // add 10,000 DAI in collateral
+        await clend.addCollateral(coreDAO.address, amountCoreDaoDeposited ,{from :CORE_RICH});
+
+
+        await clend.borrow(amountCoreDaoDeposited,{from:CORE_RICH});
+        await advanceTimeAndBlock(duration.weeks(27).toNumber()) // half a year + 1 week = liquidation
+        // we borrowed 10,000 at 20% interst and about half a year so interst should be around 1,000 and total debt around 11,000
+        const totalDebt = await clend.userTotalDebt(CORE_RICH);
+        const accruedInterest =await clend.accruedInterest(CORE_RICH);
+
+        // Make sure its within 5% of our expectation here whichi is expectation 10% increase
+        await assert(
+            totalDebt
+            .gt(amountCoreDaoDeposited.mul(new BN(11)).div(new BN(10))) //greater than 110%
+           
+        );
+
+        await assert(
+            accruedInterest
+            .gt(tBN18(1000).div(new BN(10))) //greater than 10%
+        )
+
+        // User should be liquidatable
+        const balCoreDaoBurnAddressBefore = await coreDAO.balanceOf(BURN_ADDRESS)
+        const balCoreDaoClendBefore = await coreDAO.balanceOf(clend.address)
+
+        await clend.liquidateDelinquent(CORE_RICH);
+        const balCoreDaoBurnAddressAfter = await coreDAO.balanceOf(BURN_ADDRESS)
+        const balCoreDaoClendAfter = await coreDAO.balanceOf(clend.address);
+        
+        // We check balances of burn address and clend to make sure the liquidation is removing the exact amount it should
+        await assert(
+            balCoreDaoBurnAddressAfter.eq( balCoreDaoBurnAddressBefore.add(amountCoreDaoDeposited)  )
+        )
+
+        await assert(
+            balCoreDaoClendAfter.eq( balCoreDaoClendBefore.sub(amountCoreDaoDeposited)  )
+        )
+        
+        // We make sure the struct has been deleted correctly
+        await assert((await clend.userCollateralValue(CORE_RICH)).eq(tBN18(0)))
+        await assert((await clend.accruedInterest(CORE_RICH)).eq(tBN18(0)));
+        await assert((await clend.userTotalDebt(CORE_RICH)).eq(tBN18(0)));
+    });
+
 
 
 
