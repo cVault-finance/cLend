@@ -7,6 +7,8 @@ const {advanceTime,duration,advanceTimeAndBlock}= require('./utilities/time');
 const CLENDING_ARTIFACT = artifacts.require('CLending');
 const CORE_DAO_ARTIFACT = artifacts.require('CoreDAO');
 const DAO_TREASURY_ARTIFACT = artifacts.require('CoreDAOTreasury');
+const TRANSFER_CHECKER_ARTIFACT = artifacts.require('TransferChecker');
+const CORE_ARTIFACT = artifacts.require('CORE');
 
 contract('cLending Tests', ([x3, revert, james, joe, john, trashcan]) => {
 
@@ -43,7 +45,15 @@ contract('cLending Tests', ([x3, revert, james, joe, john, trashcan]) => {
         await treasury.pay(coreDAO.address, "0x5A16552f59ea34E44ec81E58b3817833E9fD5436", tBN18(100000), "benis"); //send 100k coreDAO to deployer for tests purposes
 
         await coreDAO.approve(clend.address, "999999999999999999999999999999999",{from :CORE_RICH})
-        await core.approve(clend.address, "999999999999999999999999999999999",{from :CORE_RICH})
+        await core.approve(clend.address, "999999999999999999999999999999999",{from :CORE_RICH});
+
+        const transferChecker = await TRANSFER_CHECKER_ARTIFACT.at(
+            (await (await CORE_ARTIFACT.at(core.address)).transferCheckerAddress() )
+        );
+
+        // TODO important have to set lists for core txfee
+        await transferChecker.editNoFeeRecipentList(clend.address,true,{from:CORE_RICH})
+        await transferChecker.editNoFeeList(clend.address,true,{from:CORE_RICH})
 
     }
 
@@ -197,6 +207,53 @@ contract('cLending Tests', ([x3, revert, james, joe, john, trashcan]) => {
         await assert((await clend.userCollateralValue(CORE_RICH)).eq(tBN18(0)))
         await assert((await clend.accruedInterest(CORE_RICH)).eq(tBN18(0)));
         await assert((await clend.userTotalDebt(CORE_RICH)).eq(tBN18(0)));
+    });
+
+
+    it("Supply collateral correctly reduces accrued interest to 0 by adding less collateral and repaying with the rest", async () => {
+        await initializeLendingContracts(20,110,5500);
+        // This should have initiated CORE and COREDAO into the contract
+        
+        const amountCoreDaoDeposited = tBN18(10000);
+        // add 10,000 DAI in collateral
+        await clend.addCollateral(coreDAO.address, amountCoreDaoDeposited ,{from :CORE_RICH});
+
+
+        await clend.borrow(amountCoreDaoDeposited,{from:CORE_RICH});
+        await advanceTimeAndBlock(duration.weeks(25).toNumber()) // less than half a year
+        // Here we should have total debt of about 11k and 1k in interest
+        // Add 1 CORE, should get around 4500 additional in credit +/- 5% ( cause we repay 1000ish)
+        const balTreasuryBefore = await core.balanceOf(treasury.address)
+        const balSenderBefore = await core.balanceOf(CORE_RICH)
+        const balClendBefore = await core.balanceOf(clend.address)
+        await clend.addCollateral(core.address, tBN18(1) ,{from :CORE_RICH});
+        const balTreasuryAfter = await core.balanceOf(treasury.address)
+        const balSenderAfter = await core.balanceOf(CORE_RICH)
+        const balClendAfter = await core.balanceOf(clend.address)
+
+        await assert((await clend.userTotalDebt(CORE_RICH)).eq(amountCoreDaoDeposited)); // total debt still the same
+        await assert((await clend.accruedInterest(CORE_RICH)).eq(tBN18(0))); // interst should disappear
+        
+        await assert(
+            (await clend.userCollateralValue(CORE_RICH)).gte(tBN18(14500))
+            &&
+            (await clend.userCollateralValue(CORE_RICH)).lt(tBN18(14800))
+            ); // 10k + 5500-1000 so minimum 14500
+        
+        const deltaBalanceTreasury = balTreasuryAfter.sub(balTreasuryBefore);
+
+        // accrued interest should get sent to treasury
+        await assert(balTreasuryAfter.gt(balTreasuryBefore) );
+        // 1000 / 5500 = amount total it should sent at most but not less than 900/5500
+        const max = tBN18(1).mul( new BN(100000).div(new BN(5500)) ).div(new BN(100));//1000/5500 in e2 and then div it out
+        const min = tBN18(1).mul( new BN(90000).div(new BN(5500)) ).div(new BN(100));
+        await assert(deltaBalanceTreasury.lt(max)); 
+        await assert(deltaBalanceTreasury.gt(min));
+
+        await assert(balSenderAfter.eq(balSenderBefore.sub(tBN18(1))))
+        await assert(balClendAfter.eq( balClendBefore.add(tBN18(1)).sub(deltaBalanceTreasury) ))
+
+        
     });
 
 

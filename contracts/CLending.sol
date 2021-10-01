@@ -271,6 +271,7 @@ contract CLending is OwnableUpgradeable {
     function liquidate(address user) private {
 
         for (uint256 i = 0; i < debtorSummary[user].collateral.length; i++) {
+            console.log("Liquidation loop count ", i+1);
             uint256 amount = debtorSummary[user].collateral[i].amountCollateral;
             address currentCollateralAddress = debtorSummary[user].collateral[i].collateralAddress;
 
@@ -294,8 +295,6 @@ contract CLending is OwnableUpgradeable {
                     amount / 200 //amount 0.5%
                 );
             }
-
-
         }
 
         delete debtorSummary[user]; // remove all collateral and debt
