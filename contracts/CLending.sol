@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 
 pragma solidity =0.8.6;
-// TODO check diffecences with safemath
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "./CLendingLibrary.sol";
 import "./types/CLendingTypes.sol";
 import "hardhat/console.sol";// TODO remove console logs
@@ -126,7 +124,7 @@ contract CLending is OwnableUpgradeable,cLendingEventEmitter {
         require(offeredCollateralValue >= _accruedInterest, "CLending: INSUFFICIENT_AMOUNT"); // Has to be done because we have to update debt time
         // Note that acured interest is never bigger than 10% of supplied collateral because of liquidateDelinquent call above
         if (offeredCollateralValue > totalDebt) {
-            amount = quantityOfTokenForValueInDAI(totalDebt, tokenCollateralAbility); // TODO: Add unit test
+            amount = quantityOfTokenForValueInDAI(totalDebt, tokenCollateralAbility);
             userSummaryStorage.amountDAIBorrowed = 0;
             // Updating debt time is not nessesary since accrued interest on 0 will always be 0
 
@@ -318,8 +316,6 @@ contract CLending is OwnableUpgradeable,cLendingEventEmitter {
         }
 
         delete debtorSummary[user]; // remove all collateral and debt
-
-
 
     }
 

@@ -293,6 +293,9 @@ contract('cLending Tests', ([x3, revert, james, joe, john, trashcan]) => {
 
     it("Removing all collateral should work correctly", async () => {
         await initializeLendingContracts(20,110,5500);
+
+        await expectRevert(clend.reclaimAllCollateral({from:CORE_RICH}), "CLending: NOTHING_TO_CLAIM");
+
         // This should have initiated CORE and COREDAO into the contract
         
         const amountCoreDaoDeposited = tBN18(20000);
