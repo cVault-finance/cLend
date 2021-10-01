@@ -2,7 +2,7 @@ const { expectRevert, time, BN } = require('@openzeppelin/test-helpers');
 const { assert,web3 } = require('hardhat');
 const { impersonate} = require('./utilities/impersonate.js');
 const hardhatConfig = require('../hardhat.config');
-
+const {advanceTime,duration,advanceTimeAndBlock}= require('./utilities/time');
 
 const CLENDING_ARTIFACT = artifacts.require('CLending');
 const CORE_DAO_ARTIFACT = artifacts.require('CoreDAO');
@@ -102,9 +102,54 @@ contract('cLending Tests', ([x3, revert, james, joe, john, trashcan]) => {
         await assert((await clend.userTotalDebt(CORE_RICH)).eq(tBN18(0)));
 
         await clend.borrow(tBN18(21000),{from:CORE_RICH});
-
         await expectRevert( clend.borrow(tBN18(1),{from:CORE_RICH}), "CLending: OVER_DEBTED");
     });
+
+    it("Should correctly calculate total debt over time", async () => {
+        await initializeLendingContracts(20,110,5500);
+        // This should have initiated CORE and COREDAO into the contract
+        
+        // add 2 core to collateral
+        await clend.addCollateral(core.address, tBN18(2),{from :CORE_RICH});
+        // add 10,000 DAI in collateral
+        await clend.addCollateral(coreDAO.address, tBN18(10000),{from :CORE_RICH});
+
+        // collateral should be now 5,500 *2 + 10,00 = 21,000
+        // cause we initialized core to 5500 above
+        await assert((await clend.userCollateralValue(CORE_RICH)).eq(tBN18(21000)))
+        await assert((await clend.accruedInterest(CORE_RICH)).eq(tBN18(0)));
+        await assert((await clend.userTotalDebt(CORE_RICH)).eq(tBN18(0)));
+
+        await clend.borrow(tBN18(10000),{from:CORE_RICH});
+        await advanceTimeAndBlock(duration.weeks(26).toNumber()) // half a year
+        // we borrowed 10,000 at 20% interst and about half a year so interst should be around 1,000 and total debt around 11,000
+        const totalDebtAfterHalfYear = await clend.userTotalDebt(CORE_RICH);
+        const accuredInterestAfterHalfYear =await clend.accruedInterest(CORE_RICH);
+
+        console.log("Debt after half a year or borrowign 10k",totalDebtAfterHalfYear.toString() /1e18, "DAI");
+        console.log("Accrued interest after half a year of borrowning 10k",accuredInterestAfterHalfYear.toString() /1e18, "DAI");
+
+        // Check the total debt is interst + amount borrowed
+        await assert((await clend.userTotalDebt(CORE_RICH)).eq( accuredInterestAfterHalfYear.add( (await clend.debtorSummary(CORE_RICH)).amountDAIBorrowed )  ));
+
+        // Make sure its within 5% of our expectation here whichi is expectation 10% increase
+        await assert(
+            totalDebtAfterHalfYear
+            .gt(tBN18(10950)) &&
+            totalDebtAfterHalfYear
+            .lt(tBN18(11050))
+        );
+
+        await assert(
+            accuredInterestAfterHalfYear
+            .gt(tBN18(950)) &&
+            accuredInterestAfterHalfYear
+            .lt(tBN18(1050))
+        )
+
+    });
+
+
 
 
     const tBN18 = (numTokens) => tBN(numTokens,18)
