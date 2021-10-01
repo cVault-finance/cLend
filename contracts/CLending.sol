@@ -7,14 +7,14 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "./CLendingLibrary.sol";
 import "./types/CLendingTypes.sol";
-import "hardhat/console.sol";
-// TODO remove console logs
+import "hardhat/console.sol";// TODO remove console logs
+import "./CLendingEventEmitter.sol";
 
 /**
  * @title Lending contract for CORE and CoreDAO
  * @author CVault Finance
  */
-contract CLending is OwnableUpgradeable {
+contract CLending is OwnableUpgradeable,cLendingEventEmitter {
     using CLendingLibrary for IERC20;
 
     IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
@@ -24,7 +24,8 @@ contract CLending is OwnableUpgradeable {
     mapping(address => DebtorSummary) public debtorSummary;
     mapping(address => uint256) public collaterabilityOfToken;
     mapping(address => address) public liquidationBeneficiaryOfToken;
-    mapping(address => bool) public tokenRetired;
+    mapping(address => bool) public tokenRetired; // Since the whitelist is based on collatarability of token
+                                                  // We cannot retire it by setting it to 0 hence this mapping was added
 
     address public coreDAOTreasury;
     uint256 public yearlyPercentInterest;
@@ -45,17 +46,15 @@ contract CLending is OwnableUpgradeable {
         __Ownable_init();
 
         coreDAOTreasury = _coreDAOTreasury;
-        yearlyPercentInterest = _yearlyPercentInterest;
-        loanDefaultThresholdPercent = _loanDefaultThresholdPercent;
+    
+        changeLoanTerms(_yearlyPercentInterest,_loanDefaultThresholdPercent);
+
         require(loanDefaultThresholdPercent > 100, "Instant liquidation would be possible");
 
-        collaterabilityOfToken[address(CORE_TOKEN)] = _coreTokenCollaterability;
-        collaterabilityOfToken[address(_daoToken)] = 1;
-        collaterabilityOfToken[address(DAI)] = 1; // Not adding liquidation beneficiary serves as a safeguard in changing this as well
-                                                  // DAI will never be liquidated because its not accepted as collateral only as a way of repay
+        addNewToken(address(_daoToken), DEADBEEF, 1, 18);
+        addNewToken(address(CORE_TOKEN), DEADBEEF, _coreTokenCollaterability, 18);
+        addNewToken(address(DAI), _coreDAOTreasury, 1, 18); // DAI should never be liquidated but this is just in case
 
-        liquidationBeneficiaryOfToken[address(CORE_TOKEN)] = DEADBEEF;
-        liquidationBeneficiaryOfToken[address(_daoToken)] = DEADBEEF;
         coreDAO = _daoToken;
     }
 
@@ -65,6 +64,8 @@ contract CLending is OwnableUpgradeable {
 
     // It should be noted that this will change everything backwards in time meaning some people might be liquidated right away
     function changeLoanTerms(uint256 _yearlyPercentInterest, uint256 _loanDefaultThresholdPercent) public onlyOwner {
+        emit LoanTermsChanged(yearlyPercentInterest, _yearlyPercentInterest, block.timestamp, msg.sender);
+
         yearlyPercentInterest = _yearlyPercentInterest;
         loanDefaultThresholdPercent = _loanDefaultThresholdPercent;
     }
@@ -72,6 +73,7 @@ contract CLending is OwnableUpgradeable {
 
     // TODO add market supported check so can retire tokens to 0
     function editTokenCollaterability(address token, uint256 newCollaterability) public onlyOwner {
+        emit TokenCollaterabilityChanged(token, collaterabilityOfToken[token], newCollaterability, block.timestamp, msg.sender);
         require(liquidationBeneficiaryOfToken[token] != address(0), "Token not added");
         if(newCollaterability == 0) {
             tokenRetired[token] = true;
@@ -82,7 +84,8 @@ contract CLending is OwnableUpgradeable {
     }
 
     // warning this does not support different amount than 18 decimals
-    function addNewToken(address token, address liquidationBeneficiary, uint256 collaterabilityInUSD, uint256 decimals) public onlyOwner {
+    function addNewToken(address token, address liquidationBeneficiary, uint256 collaterabilityInDAI, uint256 decimals) public onlyOwner {
+        
         /// 1e18 CORE = 5,500 e18 DAI
         /// 1units CORE = 5,500units DAI
         // $1DAI = 1e18 units
@@ -94,9 +97,10 @@ contract CLending is OwnableUpgradeable {
         require(decimals == 18, "This contract doesn't support tokens with amount of decimals different than 18. Do not use this token. Or everything will break");
         require(collaterabilityOfToken[token] == 0 && liquidationBeneficiaryOfToken[token] == address(0), "Token already added");
         if(liquidationBeneficiary == address(0)) { liquidationBeneficiary=DEADBEEF; } // covers not send to 0 tokens
-        require(collaterabilityInUSD > 0, "Token collerability should be above 0");
+        require(collaterabilityInDAI > 0, "Token collerability should be above 0");
+        emit NewTokenAdded(token, collaterabilityInDAI, liquidationBeneficiary, block.timestamp, msg.sender);
         liquidationBeneficiaryOfToken[token] = liquidationBeneficiary;
-        collaterabilityOfToken[token] = collaterabilityInUSD;
+        collaterabilityOfToken[token] = collaterabilityInDAI;
     }
 
     function editTokenLiquiationBeneficiary(address token, address newBeneficiary) public onlyOwner {
@@ -104,7 +108,8 @@ contract CLending is OwnableUpgradeable {
         require(liquidationBeneficiaryOfToken[token] != address(0), "token not added");
         require(token != address(CORE_TOKEN) && token != address(coreDAO)); // Those should stay burned or floor doesnt hold
         if(newBeneficiary == address(0)) { newBeneficiary=DEADBEEF; } // covers not send to 0 tokens
-        liquidationBeneficiaryOfToken[token] = newBeneficiary;
+        emit TokenLiquidationBeneficiaryChanged(token, liquidationBeneficiaryOfToken[token], newBeneficiary, block.timestamp, msg.sender);
+       liquidationBeneficiaryOfToken[token] = newBeneficiary;
     }
     // Repays the loan supplying collateral and not adding it
     function repayLoan(IERC20 token, uint256 amount) public {
@@ -124,6 +129,7 @@ contract CLending is OwnableUpgradeable {
             amount = quantityOfTokenForValueInDAI(totalDebt, tokenCollateralAbility); // TODO: Add unit test
             userSummaryStorage.amountDAIBorrowed = 0;
             // Updating debt time is not nessesary since accrued interest on 0 will always be 0
+
         } else {
             userSummaryStorage.amountDAIBorrowed =
                 userSummaryStorage.amountDAIBorrowed -
@@ -133,7 +139,8 @@ contract CLending is OwnableUpgradeable {
         }
 
         token.safeTransferFrom(msg.sender, amount); // amount is changed if user supplies more than is neesesry to wipe their debt and interest
-
+        emit Repayment(address(token), amount,block.timestamp, msg.sender);
+        emit InterestPaid(address(token), _accruedInterest, block.timestamp, msg.sender);
         // Send the accrued interest back to the DAO
         safeTransfer(address(token), coreDAOTreasury, quantityOfTokenForValueInDAI(_accruedInterest, tokenCollateralAbility));
     }
@@ -172,7 +179,10 @@ contract CLending is OwnableUpgradeable {
 
         // We add collateral into the user struct
         upsertCollateralInUserSummary(userSummaryStorage, token, amount - accruedInterestInToken);
+        emit CollateralAdded(address(token), amount, block.timestamp, msg.sender);
+
         wipeInterestOwed(userSummaryStorage); // wipes accrued interest
+
     }
 
     function addCollateral(IERC20 token, uint256 amount) public {
@@ -225,7 +235,9 @@ contract CLending is OwnableUpgradeable {
         wipeInterestOwed(userSummaryStorage); // because we added it to their borrowed amount
 
         DAI.transfer(user, amountBorrow); // DAI transfer function doesnt need safe transfer
+        emit LoanTaken( amountBorrow + userAccruedInterest, block.timestamp, user); // real loan taken is with interest cause we are calculating interest on the interest repayment so its a loan
         if(userAccruedInterest > 0) {
+            emit InterestPaid(address(DAI), userAccruedInterest, block.timestamp, user);
             DAI.transfer(coreDAOTreasury, userAccruedInterest); // accured interest is in DAI, and we added it to amount borrowed
         }
     }
@@ -266,6 +278,7 @@ contract CLending is OwnableUpgradeable {
             console.log("User is liquidatable, liqudating");
             // user is in default, wipe their debt and collateral
             liquidate(user);
+            emit Liquidation(user, totalCollateral, block.timestamp, msg.sender);
             return (0, 0);
         }
     }
@@ -301,6 +314,8 @@ contract CLending is OwnableUpgradeable {
 
         delete debtorSummary[user]; // remove all collateral and debt
 
+
+
     }
 
     function safeTransfer(address token, address to, uint value) private {
@@ -315,11 +330,14 @@ contract CLending is OwnableUpgradeable {
         require(totalDebt == 0, "CLending: STILL_IN_DEBT");
 
         for (uint256 i = 0; i < debtorSummary[msg.sender].collateral.length; i++) {
+            address collateralAddress = debtorSummary[msg.sender].collateral[i].collateralAddress;
+            uint256 amount = debtorSummary[msg.sender].collateral[i].amountCollateral;
             safeTransfer(
-                    debtorSummary[msg.sender].collateral[i].collateralAddress, //token
+                    collateralAddress, //token
                     msg.sender, // to
-                    debtorSummary[msg.sender].collateral[i].amountCollateral //amount
+                    amount //amount
             );
+            emit CollateralReclaimed(collateralAddress,amount, block.timestamp, msg.sender);
         }
 
         // User doesnt have collateral anymore and paid off debt, bye
