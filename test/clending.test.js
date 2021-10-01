@@ -291,6 +291,81 @@ contract('cLending Tests', ([x3, revert, james, joe, john, trashcan]) => {
         ) // total debt should be increased by about 10% from the borrow    
     });
 
+    it("Removing all collateral should work correctly", async () => {
+        await initializeLendingContracts(20,110,5500);
+        // This should have initiated CORE and COREDAO into the contract
+        
+        const amountCoreDaoDeposited = tBN18(20000);
+        // add 10,000 DAI in collateral
+        await clend.addCollateral(coreDAO.address, amountCoreDaoDeposited ,{from :CORE_RICH});
+
+    
+        // We deposited 20,000 margin and borrowed 10,000
+        // And waited about half a year so we should have 1000 in accured interest 
+        const clendCoreDAOBefore = await coreDAO.balanceOf(clend.address)
+        const userCoreDAOBefore = await coreDAO.balanceOf(CORE_RICH)
+        await clend.reclaimAllCollateral({from:CORE_RICH});
+        const userCoreDAOAfter = await coreDAO.balanceOf(CORE_RICH)
+        const clendCoreDAOAfter = await coreDAO.balanceOf(clend.address)
+
+        const collateralValie = await clend.userCollateralValue(CORE_RICH)
+        // Make sure user has no collateral left
+        await assert(collateralValie.isZero()) 
+        await assert((await clend.userTotalDebt(CORE_RICH)).isZero()) 
+
+        // MAke sure it correctly send to the user and not too much
+        await assert(
+            clendCoreDAOBefore.eq(clendCoreDAOAfter.add(amountCoreDaoDeposited))
+        ) 
+       await assert(
+            userCoreDAOAfter.eq(userCoreDAOBefore.add(amountCoreDaoDeposited))
+        );
+
+        //Re add collateral to make sure users cannot remove collateral if they ahve any debt
+        await clend.addCollateral(coreDAO.address, amountCoreDaoDeposited ,{from :CORE_RICH});
+        await clend.borrow("10000",{from :CORE_RICH})
+        await expectRevert(clend.reclaimAllCollateral({from:CORE_RICH}), "CLending: STILL_IN_DEBT");
+
+        // Repay the debt
+        await clend.repayLoan(core.address, "100000000",{from :CORE_RICH})
+        // retry
+        await clend.reclaimAllCollateral({from:CORE_RICH});
+
+
+    });
+
+
+
+    it("Massively overpaying debt should take only as much as it needs", async () => {
+        await initializeLendingContracts(20,110,5500);
+        // This should have initiated CORE and COREDAO into the contract
+        
+        // add 55k worth of core and borrow 55k
+        await clend.addCollateralAndBorrow(core.address, tBN18(10) ,tBN18(55000),{from :CORE_RICH});
+
+        const balanceClendBefore = await core.balanceOf(clend.address);
+        const balanceUserBefore = await core.balanceOf(CORE_RICH);
+        // The debt here should be 55k
+        // We try to repay with 100
+        await clend.repayLoan(core.address, tBN18(100),{from :CORE_RICH});
+        const balanceClendAfter = await core.balanceOf(clend.address);
+        const balanceUserAfter = await core.balanceOf(CORE_RICH);
+
+        await assert((await clend.userTotalDebt(CORE_RICH)).isZero());
+
+        // We make sure we removed more or equal to 10 tokens but less than 11
+        await assert(
+            balanceUserAfter.lte( balanceUserBefore.sub(tBN18(10)) ) &&
+            balanceUserAfter.gte( balanceUserBefore.sub(tBN18(11)) )
+        )
+
+        // We make sure that balance of cLend is exactly 10 tokens richer cause it sent rest to accured interest if there is any acc interest
+        await assert(
+            balanceClendAfter.eq( balanceClendBefore.add(tBN18(10)) ) 
+        )
+
+    });
+
 
 
 

@@ -137,12 +137,17 @@ contract CLending is OwnableUpgradeable,cLendingEventEmitter {
             // Send the repayment amt
             wipeInterestOwed(userSummaryStorage);
         }
+        require(amount > 0, "CLending: REPAYMENT_NOT_SUCESSFUL");
 
         token.safeTransferFrom(msg.sender, amount); // amount is changed if user supplies more than is neesesry to wipe their debt and interest
         emit Repayment(address(token), amount,block.timestamp, msg.sender);
         emit InterestPaid(address(token), _accruedInterest, block.timestamp, msg.sender);
         // Send the accrued interest back to the DAO
-        safeTransfer(address(token), coreDAOTreasury, quantityOfTokenForValueInDAI(_accruedInterest, tokenCollateralAbility));
+
+        uint256 amountTokensForInterstRepayment = quantityOfTokenForValueInDAI(_accruedInterest, tokenCollateralAbility);
+        if(amountTokensForInterstRepayment > 0) {
+            safeTransfer(address(token), coreDAOTreasury, amountTokensForInterstRepayment);
+        }
     }
 
     function quantityOfTokenForValueInDAI(uint256 quantityOfDAI, uint256 tokenCollateralAbility) public pure returns(uint256) {
