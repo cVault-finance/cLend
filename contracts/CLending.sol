@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity ^0.8.0;
+pragma solidity =0.8.6;
 // TODO check diffecences with safemath
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";

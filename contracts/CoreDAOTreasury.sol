@@ -32,7 +32,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         coreDAO = _coreDAO;
     }
 
-    function receive() external payable {}
+    receive() external payable {}
 
     function pay(
         address payable who,
