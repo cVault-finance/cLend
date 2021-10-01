@@ -225,7 +225,9 @@ contract CLending is OwnableUpgradeable {
         wipeInterestOwed(userSummaryStorage); // because we added it to their borrowed amount
 
         DAI.transfer(user, amountBorrow); // DAI transfer function doesnt need safe transfer
-        DAI.transfer(coreDAOTreasury, userAccruedInterest); // accured interest is in DAI, and we added it to amount borrowed
+        if(userAccruedInterest > 0) {
+            DAI.transfer(coreDAOTreasury, userAccruedInterest); // accured interest is in DAI, and we added it to amount borrowed
+        }
     }
 
     function upsertCollateralInUserSummary(
