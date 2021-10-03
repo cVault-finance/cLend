@@ -178,6 +178,61 @@ describe("Lending", function () {
     })
   })
 
+  describe("#repayLoan function", () => {
+    const collateral = getBigNumber(20, 18)
+    const borrowAmount = getBigNumber(5000, 18)
+
+    beforeEach(async () => {
+      await CORE.connect(alice).approve(cLending.address, collateral)
+      await cLending.connect(alice).addCollateral(constants.CORE, collateral)
+      await cLending.connect(alice).borrow(borrowAmount)
+    })
+
+    it("revert if amount is zero", async () => {
+      await expect(cLending.connect(alice).borrow("0")).to.revertedWith("Amount is zero")
+    })
+
+    it("revert if no collateral", async () => {
+      const borrowAmount = getBigNumber(5000, 18)
+      await expect(cLending.connect(bob).borrow(borrowAmount)).to.revertedWith("Amount is zero")
+    })
+
+    it("should borrow DAI and update debt", async () => {
+      const borrowAmount = getBigNumber(5000, 18)
+      const lendingDaiBalanceBefore = await DAI.balanceOf(cLending.address)
+      const tx = await cLending.connect(alice).borrow(borrowAmount)
+      const currentTime = await latest()
+
+      expect(await DAI.balanceOf(await alice.getAddress())).to.equal(borrowAmount)
+      expect(await DAI.balanceOf(cLending.address)).to.be.equal(lendingDaiBalanceBefore.sub(borrowAmount))
+      expect(tx)
+        .to.emit(cLending, "Borrowed")
+        .withArgs(await alice.getAddress(), borrowAmount)
+
+      const debtorSummary = await cLending.debtorSummary(await alice.getAddress())
+      expect(debtorSummary.amountDAIBorrowed).to.be.equal(borrowAmount)
+      expect(debtorSummary.timeLastBorrow).to.be.equal(currentTime)
+    })
+
+    it("should borrow maximum amount if user want to borrow too much than collateral", async () => {
+      const borrowAmount = getBigNumber(500000, 18)
+      const borrowMax = collateral.mul(coreCollaterability).mul(BigNumber.from("100")).div(loanDefaultThresholdPercent)
+      const lendingDaiBalanceBefore = await DAI.balanceOf(cLending.address)
+      const tx = await cLending.connect(alice).borrow(borrowAmount)
+      const currentTime = await latest()
+
+      expect(await DAI.balanceOf(await alice.getAddress())).to.equal(borrowMax)
+      expect(await DAI.balanceOf(cLending.address)).to.be.equal(lendingDaiBalanceBefore.sub(borrowMax))
+      expect(tx)
+        .to.emit(cLending, "Borrowed")
+        .withArgs(await alice.getAddress(), borrowMax)
+
+      const debtorSummary = await cLending.debtorSummary(await alice.getAddress())
+      expect(debtorSummary.amountDAIBorrowed).to.be.equal(borrowMax)
+      expect(debtorSummary.timeLastBorrow).to.be.equal(currentTime)
+    })
+  })
+
   it("should correctly add 20% a year interest", async () => {
     // Someone adds collateral and borrows 1000 DAI
     // Then he should have 10%/6months interest so less than 1% monthly from that meaning hsi debt at 110% would be 1100 DAI
