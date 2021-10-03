@@ -57,7 +57,7 @@ describe("CoreDAOTreasury", function () {
     const payAmount = utils.parseEther("1")
 
     it("revert if msg.sender is not owner", async () => {
-      await expect(treasury.connect(alice).pay(await alice.getAddress(), payAmount, etherConstants.AddressZero, "test")).to.be.revertedWith(
+      await expect(treasury.connect(alice).pay(etherConstants.AddressZero, await alice.getAddress(), payAmount, "test")).to.be.revertedWith(
         "Ownable: caller is not the owner"
       )
     })
@@ -70,7 +70,7 @@ describe("CoreDAOTreasury", function () {
       })
 
       const aliceBalanceBefore = await alice.getBalance()
-      const tx = await treasury.connect(owner).pay(await alice.getAddress(), payAmount, etherConstants.AddressZero, "test")
+      const tx = await treasury.connect(owner).pay(etherConstants.AddressZero, await alice.getAddress(), payAmount, "test")
       expect(tx)
         .to.emit(treasury, "Payment")
         .withArgs(await alice.getAddress(), etherConstants.AddressZero, payAmount, "test")
@@ -85,7 +85,7 @@ describe("CoreDAOTreasury", function () {
       const treasuryBalance = utils.parseEther("100")
       await mockToken.connect(owner).transfer(treasury.address, treasuryBalance)
 
-      const tx = await treasury.connect(owner).pay(await alice.getAddress(), payAmount, mockToken.address, "test")
+      const tx = await treasury.connect(owner).pay(mockToken.address, await alice.getAddress(), payAmount, "test")
       expect(tx)
         .to.emit(treasury, "Payment")
         .withArgs(await alice.getAddress(), mockToken.address, payAmount, "test")
@@ -97,7 +97,7 @@ describe("CoreDAOTreasury", function () {
 
   describe("#wrapVouchers function", async () => {
     it("revert if mint amount is zero", async () => {
-      await expect(treasury.connect(alice).wrapVouchers()).to.be.revertedWith("No tokens to wrap")
+      await expect(treasury.connect(alice).wrapVouchers()).to.be.revertedWith("CLending: NOTHING_TO_WRAP")
     })
 
     it("should wrap vouchers", async () => {
@@ -121,7 +121,7 @@ describe("CoreDAOTreasury", function () {
       await LP3_VOUCHER.connect(coreVault).transfer(await alice.getAddress(), LP3_BALANCE)
       await LP3_VOUCHER.connect(alice).approve(treasury.address, LP3_BALANCE)
 
-      const deadAddress = "0x000000000000000000000000000000000000dEaD"
+      const deadAddress = "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"
       const deadBalanceLp1 = await LP1_VOUCHER.balanceOf(deadAddress)
       const deadBalanceLp2 = await LP2_VOUCHER.balanceOf(deadAddress)
       const deadBalanceLp3 = await LP3_VOUCHER.balanceOf(deadAddress)

@@ -13,7 +13,6 @@ import "solidity-coverage"
 import "hardhat-deploy"
 import "hardhat-dependency-compiler"
 import "./tasks"
-import "@nomiclabs/hardhat-truffle5"
 
 import { HardhatNetworkHDAccountsUserConfig, HardhatUserConfig } from "hardhat/types"
 
