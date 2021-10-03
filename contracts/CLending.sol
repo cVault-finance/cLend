@@ -157,7 +157,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
                 userSummaryStorage.amountDAIBorrowed -
                 (offeredCollateralValue - _accruedInterest); // Parenthesis is important as their collateral is garnished by accrued interest repayment
             // Send the repayment amt
-            wipeInterestOwed(userSummaryStorage);
+            _wipeInterestOwed(userSummaryStorage);
         }
         require(amount > 0, "CLending: REPAYMENT_NOT_SUCESSFUL");
 
@@ -171,7 +171,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
             tokenCollateralAbility
         );
         if (amountTokensForInterstRepayment > 0) {
-            safeTransfer(address(token), coreDAOTreasury, amountTokensForInterstRepayment);
+            _safeTransfer(address(token), coreDAOTreasury, amountTokensForInterstRepayment);
         }
     }
 
@@ -208,14 +208,14 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         require(accruedInterestInToken < amount, "CLending: INSUFFICIENT_AMOUNT"); //  we dont want 0 amount
 
         if (accruedInterestInToken > 0) {
-            safeTransfer(address(token), coreDAOTreasury, accruedInterestInToken);
+            _safeTransfer(address(token), coreDAOTreasury, accruedInterestInToken);
         }
 
         // We add collateral into the user struct
-        upsertCollateralInUserSummary(userSummaryStorage, token, amount - accruedInterestInToken);
+        _upsertCollateralInUserSummary(userSummaryStorage, token, amount - accruedInterestInToken);
         emit CollateralAdded(address(token), amount, block.timestamp, msg.sender);
 
-        wipeInterestOwed(userSummaryStorage); // wipes accrued interest
+        _wipeInterestOwed(userSummaryStorage); // wipes accrued interest
     }
 
     function addCollateral(IERC20 token, uint256 amount) public {
@@ -265,7 +265,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
             userSummaryStorage.amountDAIBorrowed +
             amountBorrow +
             userAccruedInterest;
-        wipeInterestOwed(userSummaryStorage); // because we added it to their borrowed amount
+        _wipeInterestOwed(userSummaryStorage); // because we added it to their borrowed amount
 
         DAI.transfer(user, amountBorrow); // DAI transfer function doesnt need safe transfer
         emit LoanTaken(amountBorrow + userAccruedInterest, block.timestamp, user); // real loan taken is with interest cause we are calculating interest on the interest repayment so its a loan
@@ -275,7 +275,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         }
     }
 
-    function upsertCollateralInUserSummary(
+    function _upsertCollateralInUserSummary(
         DebtorSummary storage userSummaryStorage,
         IERC20 token,
         uint256 amount
@@ -296,7 +296,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         userSummaryStorage.collateral.push(Collateral({collateralAddress: address(token), amountCollateral: amount}));
     }
 
-    function isLiquidable(uint256 totalDebt, uint256 totalCollateral) private view returns (bool) {
+    function _isLiquidable(uint256 totalDebt, uint256 totalCollateral) private view returns (bool) {
         return totalDebt > (totalCollateral * loanDefaultThresholdPercent) / 100;
     }
 
@@ -305,16 +305,16 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         totalDebt = userTotalDebt(user); // This is with interest
         totalCollateral = userCollateralValue(user);
 
-        if (isLiquidable(totalDebt, totalCollateral)) {
+        if (_isLiquidable(totalDebt, totalCollateral)) {
             console.log("User is liquidatable, liqudating");
             // user is in default, wipe their debt and collateral
-            liquidate(user);
+            _liquidate(user);
             emit Liquidation(user, totalCollateral, block.timestamp, msg.sender);
             return (0, 0);
         }
     }
 
-    function liquidate(address user) private {
+    function _liquidate(address user) private {
         for (uint256 i = 0; i < debtorSummary[user].collateral.length; i++) {
             console.log("Liquidation loop count ", i + 1);
             uint256 amount = debtorSummary[user].collateral[i].amountCollateral;
@@ -326,19 +326,19 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
                 currentCollateralAddress == address(CORE_TOKEN)
             ) {
                 // no incentive for core to maintain floor, and its burned anyway
-                safeTransfer(
+                _safeTransfer(
                     currentCollateralAddress, //token
                     liquidationBeneficiaryOfToken[currentCollateralAddress], // to
                     amount //amount
                 );
             } else {
                 // Someone else liquidates user 0.5% incentive (1/200)
-                safeTransfer(
+                _safeTransfer(
                     currentCollateralAddress, //token
                     liquidationBeneficiaryOfToken[currentCollateralAddress], // to
                     (amount * 199) / 200 //amount 99.5%
                 );
-                safeTransfer(
+                _safeTransfer(
                     currentCollateralAddress, //token
                     msg.sender, // to
                     amount / 200 //amount 0.5%
@@ -349,7 +349,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         delete debtorSummary[user]; // remove all collateral and debt
     }
 
-    function safeTransfer(
+    function _safeTransfer(
         address token,
         address to,
         uint256 value
@@ -369,7 +369,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         for (uint256 i = 0; i < debtorSummary[msg.sender].collateral.length; i++) {
             address collateralAddress = debtorSummary[msg.sender].collateral[i].collateralAddress;
             uint256 amount = debtorSummary[msg.sender].collateral[i].amountCollateral;
-            safeTransfer(
+            _safeTransfer(
                 collateralAddress, //token
                 msg.sender, // to
                 amount //amount
@@ -405,7 +405,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         return (userSummaryMemory.amountDAIBorrowed * yearlyPercentInterest * timeSinceLastLoan) / 365_00 days; // 365days * 100
     }
 
-    function wipeInterestOwed(DebtorSummary storage userSummaryStorage) private {
+    function _wipeInterestOwed(DebtorSummary storage userSummaryStorage) private {
         userSummaryStorage.timeLastBorrow = block.timestamp;
     }
 }
