@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity ^0.8.0;
+pragma solidity =0.8.6;
 
 struct DebtorSummary {
     uint256 timeLastBorrow; // simple timestamp
@@ -11,5 +11,5 @@ struct DebtorSummary {
 
 struct Collateral {
     address collateralAddress;
-    uint256 suppliedCollateral;
+    uint256 amountCollateral;
 }

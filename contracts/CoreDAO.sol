@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity =0.8.6;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
@@ -15,13 +15,12 @@ contract CoreDAO is ERC20Votes {
     /// controller is initially the cLending contract, this can be modified
     /// by upgrading the cLending contract via the Governor contract voting with this tokens
     constructor(uint256 startingCOREDAOAmount, address treasury) ERC20("CORE DAO", "coreDAO") ERC20Permit("CoreDAO") {
-        require(treasury != address(0), "CoreDAOTreasury is zero");
         CORE_DAO_TREASURY = treasury;
         _mint(treasury, startingCOREDAOAmount);
     }
 
-    function issue(uint256 amount, address to) external {
-        require(msg.sender == CORE_DAO_TREASURY, "Not treasury");
+    function issue(address to, uint256 amount) public {
+        require(msg.sender == CORE_DAO_TREASURY, "CLending: NOT_TREASURY");
         _mint(to, amount);
     }
 }
