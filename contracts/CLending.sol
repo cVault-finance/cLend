@@ -61,14 +61,23 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
     // It should be noted that this will change everything backwards in time meaning some people might be liquidated right away
     function changeLoanTerms(uint256 _yearlyPercentInterest, uint256 _loanDefaultThresholdPercent) public onlyOwner {
-        emit LoanTermsChanged(yearlyPercentInterest, _yearlyPercentInterest, block.timestamp, msg.sender);
+        require(_loanDefaultThresholdPercent > 100, "Instant liquidation would be possible");
+
+        emit LoanTermsChanged(
+            yearlyPercentInterest,
+            _yearlyPercentInterest,
+            loanDefaultThresholdPercent,
+            _loanDefaultThresholdPercent,
+            block.timestamp,
+            msg.sender
+        );
 
         yearlyPercentInterest = _yearlyPercentInterest;
         loanDefaultThresholdPercent = _loanDefaultThresholdPercent;
     }
 
     // TODO add market supported check so can retire tokens to 0
-    function editTokenCollaterability(address token, uint256 newCollaterability) public onlyOwner {
+    function editTokenCollaterability(address token, uint256 newCollaterability) external onlyOwner {
         emit TokenCollaterabilityChanged(
             token,
             collaterabilityOfToken[token],
@@ -120,7 +129,10 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     function editTokenLiquiationBeneficiary(address token, address newBeneficiary) public onlyOwner {
         // Since beneficiary defaults to deadbeef it cannot be 0 if its been added before
         require(liquidationBeneficiaryOfToken[token] != address(0), "token not added");
-        require(token != address(CORE_TOKEN) && token != address(coreDAO)); // Those should stay burned or floor doesnt hold
+        require(
+            token != address(CORE_TOKEN) && token != address(coreDAO),
+            "Those should stay burned or floor doesnt hold"
+        ); // Those should stay burned or floor doesnt hold
         if (newBeneficiary == address(0)) {
             newBeneficiary = DEADBEEF;
         } // covers not send to 0 tokens
@@ -218,7 +230,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         _wipeInterestOwed(userSummaryStorage); // wipes accrued interest
     }
 
-    function addCollateral(IERC20 token, uint256 amount) public {
+    function addCollateral(IERC20 token, uint256 amount) external {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         _supplyCollateral(userSummaryStorage, msg.sender, token, amount);
     }
@@ -227,7 +239,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         IERC20 tokenCollateral,
         uint256 amountCollateral,
         uint256 amountBorrow
-    ) public {
+    ) external {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         _supplyCollateral(userSummaryStorage, msg.sender, tokenCollateral, amountCollateral);
         _borrow(userSummaryStorage, msg.sender, amountBorrow);
@@ -360,7 +372,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         require(success && (data.length == 0 || abi.decode(data, (bool))), "cLending: TRANSFER_FAILED");
     }
 
-    function reclaimAllCollateral() public {
+    function reclaimAllCollateral() external {
         (uint256 totalDebt, uint256 totalCollateral) = liquidateDelinquent(msg.sender);
 
         require(totalCollateral > 0, "CLending: NOTHING_TO_CLAIM");
