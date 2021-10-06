@@ -26,7 +26,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const coreDeployerSigner = await ethers.getSigner(constants.CORE_MULTISIG)
     const coreDAOTreasurySigner = await ethers.getSigner(CoreDAOTreasury.address)
 
-    await CoreDAO.connect(coreDAOTreasurySigner).issue(getBigNumber(12345), account1.address)
+    await CoreDAO.connect(coreDAOTreasurySigner).issue(account1.address, getBigNumber(12345))
     await Core.connect(coreDeployerSigner).transfer(account1.address, getBigNumber(321))
     await Dai.connect(coreDeployerSigner).transfer(account1.address, getBigNumber(50000))
 

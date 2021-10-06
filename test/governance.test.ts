@@ -1,15 +1,16 @@
 import { expect } from "chai"
-import { BigNumber } from "ethers"
+import { BigNumber, Signer } from "ethers"
 import { ethers, deployments } from "hardhat"
-import { CoreDAO, CoreGovernor, IERC20 } from "../types"
+import { CoreDAO, CoreGovernor, IERC20, TimelockController } from "../types"
+import { TimelockController__factory } from "../types/factories/TimelockController__factory"
 import { getBigNumber, impersonate } from "./utilities"
 import { constants } from "../constants"
 import { parseEther } from "ethers/lib/utils"
 
-let coredao: CoreDAO
-let coreGovernor: CoreGovernor
-
 describe("CoreGovernor", async () => {
+  let coredao: CoreDAO
+  let coreGovernor: CoreGovernor
+
   beforeEach(async () => {
     await deployments.fixture()
 

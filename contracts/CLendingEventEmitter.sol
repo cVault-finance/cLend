@@ -2,17 +2,15 @@
 
 pragma solidity =0.8.6;
 
-
 contract cLendingEventEmitter {
-    
-
     event LoanTermsChanged(
         uint256 previousYearlyInterst,
         uint256 newYearlyInterst,
+        uint256 previousLoanDefaultThresholdPercent,
+        uint256 newLoanDefaultThresholdPercent,
         uint256 timestamp,
         address changedBy
     );
-
 
     event NewTokenAdded(
         address token,
@@ -38,32 +36,13 @@ contract cLendingEventEmitter {
         address changedBy
     );
 
-    event CollateralAdded(
-        address token,
-        uint256 amount,
-        uint256 timestamp,
-        address addedBy
-    );
+    event CollateralAdded(address token, uint256 amount, uint256 timestamp, address addedBy);
 
-    event LoanTaken(
-        uint256 amount,
-        uint256 timestamp,
-        address takenBy
-    );
+    event LoanTaken(uint256 amount, uint256 timestamp, address takenBy);
 
-    event Repayment(
-        address token,
-        uint256 amountTokens,
-        uint256 timestamp,
-        address addedBy
-    );
+    event Repayment(address token, uint256 amountTokens, uint256 timestamp, address addedBy);
 
-    event InterestPaid(
-        address paidInToken,
-        uint256 interestAmountInDAI,
-        uint256 timestamp,
-        address paidBy
-    );
+    event InterestPaid(address paidInToken, uint256 interestAmountInDAI, uint256 timestamp, address paidBy);
 
     event Liquidation(
         address userWhoWasLiquidated,
@@ -72,11 +51,5 @@ contract cLendingEventEmitter {
         address caller
     );
 
-    event CollateralReclaimed(
-        address token,
-        uint256 amount,
-        uint256 timestamp,
-        address byWho
-    );
-
+    event CollateralReclaimed(address token, uint256 amount, uint256 timestamp, address byWho);
 }

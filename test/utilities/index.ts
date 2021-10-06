@@ -1,5 +1,5 @@
 import { ParamType } from "@ethersproject/abi"
-import { BigNumber } from "ethers"
+import { BigNumber, Wallet } from "ethers"
 import hre, { ethers } from "hardhat"
 
 export const BASE_TEN = 10
@@ -19,6 +19,10 @@ export const impersonate = async (address: string) => {
 // Defaults to e18 using amount * 10^18
 export function getBigNumber(amount: any, decimals: number = 18) {
   return BigNumber.from(amount).mul(BigNumber.from(BASE_TEN).pow(decimals))
+}
+
+export function getRandomAddress() {
+  return Wallet.createRandom().address
 }
 
 export * from "./time"
