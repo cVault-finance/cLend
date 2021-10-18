@@ -407,6 +407,12 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         }
     }
 
+    function userCollaterals(address user) public view returns (Collateral[] memory) {
+        Collateral[] memory userCollateralTokens = debtorSummary[user].collateral;
+
+        return userCollateralTokens;
+    }
+
     function userTotalDebt(address user) public view returns (uint256) {
         return accruedInterest(user) + debtorSummary[user].amountDAIBorrowed;
     }
