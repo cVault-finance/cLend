@@ -1,7 +1,7 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { DeployFunction } from "hardhat-deploy/types"
 import { ethers, network } from "hardhat"
-import { CoreDAO, CoreDAOTreasury, CoreGovernor, IERC20 } from "../types"
+import { CLending, CoreDAO, CoreDAOTreasury, CoreGovernor, IERC20 } from "../types"
 import { getBigNumber, impersonate } from "../test/utilities"
 import { constants } from "../constants"
 
@@ -15,6 +15,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const { deployer } = await getNamedAccounts()
     const [, account1] = await ethers.getSigners()
 
+    const Lending = await ethers.getContract<CLending>("CLending")
     const CoreDAO = await ethers.getContract<CoreDAO>("CoreDAO")
     const CoreDAOTreasury = await ethers.getContract<CoreDAOTreasury>("CoreDAOTreasury")
     const Core = await ethers.getContractAt<IERC20>("IERC20", constants.CORE)
@@ -29,12 +30,14 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     await CoreDAO.connect(coreDAOTreasurySigner).issue(account1.address, getBigNumber(12345))
     await Core.connect(coreDeployerSigner).transfer(account1.address, getBigNumber(321))
     await Dai.connect(coreDeployerSigner).transfer(account1.address, getBigNumber(50000))
+    await Dai.connect(coreDeployerSigner).transfer(Lending.address, await Dai.balanceOf(coreDeployerSigner.address))
 
     console.table({
       CoreDAO: CoreDAO.address,
       CoreDAOTreasury: CoreDAOTreasury.address,
       Core: Core.address,
       Dai: Dai.address,
+      Lending: Lending.address,
     })
   }
 }
