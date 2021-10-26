@@ -45,6 +45,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     await impersonate(constants.CORE_MULTISIG)
     const coreMultiSig = await ethers.getSigner(constants.CORE_MULTISIG)
     await transferChecker.connect(coreMultiSig).editNoFeeRecipentList(CLending.address, true)
+    await transferChecker.connect(coreMultiSig).editNoFeeList(CLending.address, true)
   }
 
   expect(await transferChecker.noFeeRecipent(CLending.address)).to.be.true
