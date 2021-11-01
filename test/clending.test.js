@@ -432,6 +432,107 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     await assert(balanceClendAfter.eq(balanceClendBefore.add(tBN18(10))));
   });
 
+  it("Paying interest from addCollateral should be from existing Collateral", async () => {
+    await initializeLendingContracts(20, 110, 5500);
+    // This should have initiated CORE and COREDAO into the contract
+
+    const amountCoreDaoDeposited = tBN18(10000);
+    const amountBorrowed = tBN18(8000);
+    // add 10,000 DAI in collateral & borrow 8,000 DAI
+    await clend.addCollateral(coreDAO.address, amountCoreDaoDeposited, {
+      from: CORE_RICH,
+    });
+    await clend.borrow(amountBorrowed, { from: CORE_RICH });
+    await advanceTimeAndBlock(duration.weeks(25).toNumber()); // less than half a year
+    // Here we should have total debt of about 8800 and 800 in interest
+    const accuredInterestAfterHalfYear = await clend.accruedInterest(CORE_RICH);
+    const existingCollateral = await clend.userCollateralValue(CORE_RICH);
+    console.log(
+      "Existing Collateral",
+      existingCollateral.toString() / 1e18,
+      "DAI"
+    );
+    console.log(
+      "Accrued interest after half a year of borrowing 8k",
+      accuredInterestAfterHalfYear.toString() / 1e18,
+      "DAI"
+    );
+
+    const amountCoreDaoAdded = tBN18(500);
+    // add 500 DAI in collateral
+    // We need the added collateral amount to be less than the interest
+    assert(
+      amountCoreDaoAdded.lt(accuredInterestAfterHalfYear) &&
+        existingCollateral.gte(accuredInterestAfterHalfYear),
+      "Added Collateral should be less than the interest amount"
+    );
+
+    // adding the Collateral should not revert and use existing Collateral
+    await clend.addCollateral(coreDAO.address, amountCoreDaoAdded, {
+      from: CORE_RICH,
+    });
+
+    const finalCollateralValue = await clend.userCollateralValue(CORE_RICH);
+    console.log(
+      "Final Collateral",
+      finalCollateralValue.toString() / 1e18,
+      "DAI"
+    );
+    const balTreasuryAfter = await coreDAO.balanceOf(treasury.address);
+    console.log("Treasury Balance", balTreasuryAfter.toString() / 1e18);
+
+    assert(
+      finalCollateralValue.gt(amountCoreDaoDeposited),
+      "Collateral should have been added"
+    );
+    assert(balTreasuryAfter.gt(0), "Interest should have been paid");
+    assert(
+      (await clend.accruedInterest(CORE_RICH)).isZero(),
+      "User's Interest not set to 0"
+    );
+  });
+
+  it("Interest should be calculated on the real borrowed amount", async () => {
+    await initializeLendingContracts(20, 110, 5500);
+    // This should have initiated CORE and COREDAO into the contract
+
+    const amountCoreDaoDeposited = tBN18(10000);
+    const amountBorrowed = tBN18(1000);
+    // add 10,000 DAI in collateral & borrow 1,000 DAI
+    await clend.addCollateral(coreDAO.address, amountCoreDaoDeposited, {
+      from: CORE_RICH,
+    });
+    await clend.borrow(amountBorrowed, { from: CORE_RICH });
+    await advanceTimeAndBlock(duration.years(1).toNumber()); // Advance a year
+    // Here we should have total debt of about 8800 and 800 in interest
+    const accuredInterestAfterYear = await clend.accruedInterest(CORE_RICH);
+    console.log(
+      "Accrued interest after a year of borrowing 1k",
+      accuredInterestAfterYear.toString() / 1e18,
+      "DAI"
+    );
+    // User borrows another 1k after a year
+    await clend.borrow(amountBorrowed, { from: CORE_RICH });
+    await advanceTimeAndBlock(duration.years(1).toNumber()); // Advance another year
+    const accuredInterestAfterTwoYears = await clend.accruedInterest(CORE_RICH);
+    console.log(
+      "Accrued interest after another year of borrowing 1k",
+      accuredInterestAfterTwoYears.toString() / 1e18,
+      "DAI"
+    );
+    const userTotalDebt = await clend.userTotalDebt(CORE_RICH);
+    console.log(
+      "User total debt after 2 years",
+      userTotalDebt.toString() / 1e18,
+      "DAI"
+    );
+    // User total debt should be ~ 2600
+    assert(
+      userTotalDebt.gt(tBN18(2595)) && userTotalDebt.lt(tBN18(2605)),
+      "User total debt should be around 2600"
+    );
+  });
+
   const tBN18 = (numTokens) => tBN(numTokens, 18);
 
   const tBN = (numTokens, numDecimals) =>
