@@ -172,7 +172,7 @@ describe("Lending", function () {
     })
   })
 
-  describe("#editTokenLiquiationBeneficiary function", () => {
+  describe("#editTokenLiquidationBeneficiary function", () => {
     const token = getRandomAddress()
     const liquidationBeneficiary = getRandomAddress()
     const newLiquidationBeneficiary = getRandomAddress()
@@ -184,23 +184,23 @@ describe("Lending", function () {
     })
 
     it("revert if msg.sender is not owner", async () => {
-      await expect(cLending.connect(alice).editTokenLiquiationBeneficiary(token, newLiquidationBeneficiary)).to.revertedWith(
+      await expect(cLending.connect(alice).editTokenLiquidationBeneficiary(token, newLiquidationBeneficiary)).to.revertedWith(
         "Ownable: caller is not the owner"
       )
     })
 
     it("revert if token is CORE or CoreDAO", async () => {
-      await expect(cLending.connect(owner).editTokenLiquiationBeneficiary(CORE.address, newLiquidationBeneficiary)).to.revertedWith(
+      await expect(cLending.connect(owner).editTokenLiquidationBeneficiary(CORE.address, newLiquidationBeneficiary)).to.revertedWith(
         "Those should stay burned or floor doesnt hold"
       )
 
-      await expect(cLending.connect(owner).editTokenLiquiationBeneficiary(await cLending.coreDAO(), newLiquidationBeneficiary)).to.revertedWith(
+      await expect(cLending.connect(owner).editTokenLiquidationBeneficiary(await cLending.coreDAO(), newLiquidationBeneficiary)).to.revertedWith(
         "Those should stay burned or floor doesnt hold"
       )
     })
 
     it("should edit tokenLiquiationBeneficiary and emit TokenLiquidationBeneficiaryChanged event", async () => {
-      const tx = await cLending.connect(owner).editTokenLiquiationBeneficiary(token, newLiquidationBeneficiary)
+      const tx = await cLending.connect(owner).editTokenLiquidationBeneficiary(token, newLiquidationBeneficiary)
       const currentTime = await latest()
       expect(await cLending.liquidationBeneficiaryOfToken(token)).to.be.equal(newLiquidationBeneficiary)
 
@@ -210,7 +210,7 @@ describe("Lending", function () {
     })
 
     it("should set dead address when liquidationBeneficiary is zero address", async () => {
-      const tx = await cLending.connect(owner).editTokenLiquiationBeneficiary(token, EtherConstants.AddressZero)
+      const tx = await cLending.connect(owner).editTokenLiquidationBeneficiary(token, EtherConstants.AddressZero)
       const currentTime = await latest()
       expect(await cLending.liquidationBeneficiaryOfToken(token)).to.be.equal(constants.DEAD_BEEF)
 
