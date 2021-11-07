@@ -149,7 +149,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     await clend.borrow(tBN18(21000), { from: CORE_RICH });
     await expectRevert(
       clend.borrow(tBN18(1), { from: CORE_RICH }),
-      "CLending: OVER_DEBTED"
+      "OVER_DEBTED"
     );
   });
 
@@ -289,6 +289,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     ); // total debt still the same
     await assert((await clend.accruedInterest(CORE_RICH)).eq(tBN18(0))); // interst should disappear
 
+    console.log((await clend.userCollateralValue(CORE_RICH)).toString());
     await assert(
       (await clend.userCollateralValue(CORE_RICH)).gte(tBN18(14500)) &&
         (await clend.userCollateralValue(CORE_RICH)).lt(tBN18(14800))
@@ -355,7 +356,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
 
     await expectRevert(
       clend.reclaimAllCollateral({ from: CORE_RICH }),
-      "CLending: NOTHING_TO_CLAIM"
+      "NOTHING_TO_CLAIM"
     );
 
     // This should have initiated CORE and COREDAO into the contract
@@ -394,7 +395,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     await clend.borrow("10000", { from: CORE_RICH });
     await expectRevert(
       clend.reclaimAllCollateral({ from: CORE_RICH }),
-      "CLending: STILL_IN_DEBT"
+      "STILL_IN_DEBT"
     );
 
     // Repay the debt
