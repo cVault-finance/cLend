@@ -374,9 +374,9 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     const userCoreDAOAfter = await coreDAO.balanceOf(CORE_RICH);
     const clendCoreDAOAfter = await coreDAO.balanceOf(clend.address);
 
-    const collateralValie = await clend.userCollateralValue(CORE_RICH);
+    const collateralValue = await clend.userCollateralValue(CORE_RICH);
     // Make sure user has no collateral left
-    await assert(collateralValie.isZero());
+    await assert(collateralValue.isZero());
     await assert((await clend.userTotalDebt(CORE_RICH)).isZero());
 
     // MAke sure it correctly send to the user and not too much
