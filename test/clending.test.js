@@ -505,11 +505,11 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     });
     await clend.borrow(amountBorrowed, { from: CORE_RICH });
     await advanceTimeAndBlock(duration.years(1).toNumber()); // Advance a year
-    // Here we should have total debt of about 8800 and 800 in interest
-    const accuredInterestAfterYear = await clend.accruedInterest(CORE_RICH);
+
+    const accruedInterestAfterYear = await clend.accruedInterest(CORE_RICH);
     console.log(
       "Accrued interest after a year of borrowing 1k",
-      accuredInterestAfterYear.toString() / 1e18,
+      accruedInterestAfterYear.toString() / 1e18,
       "DAI"
     );
     // User borrows another 1k after a year
@@ -517,7 +517,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     await advanceTimeAndBlock(duration.years(1).toNumber()); // Advance another year
     const accuredInterestAfterTwoYears = await clend.accruedInterest(CORE_RICH);
     console.log(
-      "Accrued interest after another year of borrowing 1k",
+      "Accrued interest after another year of borrowing 2k",
       accuredInterestAfterTwoYears.toString() / 1e18,
       "DAI"
     );

@@ -260,41 +260,44 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         // We pay interest already accrued with the same mechanism as repay fn
         // eg. 6000 accrued interest and 1 CORE == 1
         uint256 accruedInterestInToken = quantityOfTokenForValueInDAI(accruedInterests, tokenCollateralAbility);
+        uint256 remainingAccruedInterestInToken = accruedInterestInToken;
 
-        // try to repay with existing collateral.
-        // This is limited to using the same collateral type as the token type
-        // we're supplying.
-        if (userCollateralValue[user] >= accruedInterests) {
-            (uint256 amountCollateral, int256 collateralIndex) = userCollateral(user, address(token));
+        // The supplied amount is less than what's required to repay the accrued interests
+        if (amount < accruedInterestInToken) {
+            // try to repay with existing collateral.
+            // This is limited to using the same collateral type as the token type
+            // we're supplying.
+            if (userCollateralValue[user] >= accruedInterests) {
+                (uint256 amountCollateral, int256 collateralIndex) = userCollateral(user, address(token));
 
-            // Can we repay using the supplied amount and/or the amount we're supplying?
-            if (amountCollateral + amount >= accruedInterests) {
-                _repayLoan(
-                    userSummaryStorage,
-                    token,
-                    amount,
-                    accruedInterests,
-                    tokenCollateralAbility,
-                    totalDebt,
-                    accruedInterests,
-                    collateralIndex
-                );
-                accruedInterests = 0;
-                accruedInterestInToken = 0;
+                // Can we repay using the supplied amount and/or the amount we're supplying?
+                if (amountCollateral + amount >= accruedInterests) {
+                    _repayLoan(
+                        userSummaryStorage,
+                        token,
+                        amount,
+                        accruedInterests,
+                        tokenCollateralAbility,
+                        totalDebt,
+                        accruedInterests,
+                        collateralIndex
+                    );
+                    remainingAccruedInterestInToken = 0;
+                }
             }
         }
 
-        require(accruedInterestInToken < amount, "INSUFFICIENT_AMOUNT"); //  we dont want 0 amount
+        require(remainingAccruedInterestInToken < amount, "INSUFFICIENT_AMOUNT");
 
-        if (accruedInterestInToken > 0) {
-            _safeTransfer(address(token), coreDAOTreasury, accruedInterestInToken);
+        if (remainingAccruedInterestInToken > 0) {
+            _safeTransfer(address(token), coreDAOTreasury, remainingAccruedInterestInToken);
         }
 
         // We add collateral into the user struct
         userCollateralValue[user] = _upsertCollateralInUserSummary(
             userSummaryStorage,
             token,
-            amount - accruedInterestInToken
+            accruedInterestInToken > amount ? 0 : amount - accruedInterestInToken
         );
         emit CollateralAdded(address(token), amount, block.timestamp, msg.sender);
 
@@ -344,11 +347,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         if (amountBorrow > userRemainingCollateral) {
             amountBorrow = userRemainingCollateral;
         }
-        // TODO write sanity tests
-        userSummaryStorage.amountDAIBorrowed =
-            userSummaryStorage.amountDAIBorrowed +
-            amountBorrow +
-            userAccruedInterest;
+
+        userSummaryStorage.amountDAIBorrowed += amountBorrow + userAccruedInterest;
         _wipeInterestOwed(userSummaryStorage); // because we added it to their borrowed amount
 
         DAI.transfer(user, amountBorrow); // DAI transfer function doesnt need safe transfer
