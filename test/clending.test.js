@@ -149,7 +149,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     await clend.borrow(tBN18(21000), { from: CORE_RICH });
     await expectRevert(
       clend.borrow(tBN18(1), { from: CORE_RICH }),
-      "CLending: OVER_DEBTED"
+      "OVER_DEBTED"
     );
   });
 
@@ -289,6 +289,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     ); // total debt still the same
     await assert((await clend.accruedInterest(CORE_RICH)).eq(tBN18(0))); // interst should disappear
 
+    console.log((await clend.userCollateralValue(CORE_RICH)).toString());
     await assert(
       (await clend.userCollateralValue(CORE_RICH)).gte(tBN18(14500)) &&
         (await clend.userCollateralValue(CORE_RICH)).lt(tBN18(14800))
@@ -355,7 +356,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
 
     await expectRevert(
       clend.reclaimAllCollateral({ from: CORE_RICH }),
-      "CLending: NOTHING_TO_CLAIM"
+      "NOTHING_TO_CLAIM"
     );
 
     // This should have initiated CORE and COREDAO into the contract
@@ -374,9 +375,9 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     const userCoreDAOAfter = await coreDAO.balanceOf(CORE_RICH);
     const clendCoreDAOAfter = await coreDAO.balanceOf(clend.address);
 
-    const collateralValie = await clend.userCollateralValue(CORE_RICH);
+    const collateralValue = await clend.userCollateralValue(CORE_RICH);
     // Make sure user has no collateral left
-    await assert(collateralValie.isZero());
+    await assert(collateralValue.isZero());
     await assert((await clend.userTotalDebt(CORE_RICH)).isZero());
 
     // MAke sure it correctly send to the user and not too much
@@ -394,7 +395,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     await clend.borrow("10000", { from: CORE_RICH });
     await expectRevert(
       clend.reclaimAllCollateral({ from: CORE_RICH }),
-      "CLending: STILL_IN_DEBT"
+      "STILL_IN_DEBT"
     );
 
     // Repay the debt
@@ -457,6 +458,8 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
       accuredInterestAfterHalfYear.toString() / 1e18,
       "DAI"
     );
+    const userTotalDebt1 = await clend.userTotalDebt(CORE_RICH);
+    console.log("User total debt", userTotalDebt1.toString() / 1e18, "DAI");
 
     const amountCoreDaoAdded = tBN18(500);
     // add 500 DAI in collateral
@@ -479,12 +482,19 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
       "DAI"
     );
     const balTreasuryAfter = await coreDAO.balanceOf(treasury.address);
+    const userTotalDebt = await clend.userTotalDebt(CORE_RICH);
+    console.log(
+      "User total debt After paying Interests",
+      userTotalDebt.toString() / 1e18,
+      "DAI"
+    );
     console.log("Treasury Balance", balTreasuryAfter.toString() / 1e18);
 
-    //assert(
-    //  finalCollateralValue.gt(amountCoreDaoDeposited),
-    //  "Collateral should have been added"
-    //);
+    assert(
+      finalCollateralValue.gt(tBN18(9730)) &&
+        finalCollateralValue.lt(tBN18(9735)),
+      "Collateral should have been added"
+    );
     assert(balTreasuryAfter.gt(0), "Interest should have been paid");
     assert(
       (await clend.accruedInterest(CORE_RICH)).isZero(),
@@ -504,11 +514,11 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     });
     await clend.borrow(amountBorrowed, { from: CORE_RICH });
     await advanceTimeAndBlock(duration.years(1).toNumber()); // Advance a year
-    // Here we should have total debt of about 8800 and 800 in interest
-    const accuredInterestAfterYear = await clend.accruedInterest(CORE_RICH);
+
+    const accruedInterestAfterYear = await clend.accruedInterest(CORE_RICH);
     console.log(
       "Accrued interest after a year of borrowing 1k",
-      accuredInterestAfterYear.toString() / 1e18,
+      accruedInterestAfterYear.toString() / 1e18,
       "DAI"
     );
     // User borrows another 1k after a year
@@ -516,7 +526,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     await advanceTimeAndBlock(duration.years(1).toNumber()); // Advance another year
     const accuredInterestAfterTwoYears = await clend.accruedInterest(CORE_RICH);
     console.log(
-      "Accrued interest after another year of borrowing 1k",
+      "Accrued interest after another year of borrowing 2k",
       accuredInterestAfterTwoYears.toString() / 1e18,
       "DAI"
     );
