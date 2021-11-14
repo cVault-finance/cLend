@@ -18,6 +18,6 @@ library CLendingLibrary {
         uint256 balanceAfter = token.balanceOf(address(this));
 
         transferedAmount = balanceAfter - balanceBefore;
-        require(transferedAmount == sendAmount, "CLending: UNSUPPORTED_TOKEN");
+        require(transferedAmount == sendAmount, "UNSUPPORTED_TOKEN");
     }
 }

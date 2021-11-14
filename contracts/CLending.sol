@@ -5,7 +5,6 @@ pragma solidity =0.8.6;
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./CLendingLibrary.sol";
 import "./types/CLendingTypes.sol";
-import "hardhat/console.sol"; // TODO remove console logs
 import "./CLendingEventEmitter.sol";
 
 /**
@@ -21,6 +20,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
     mapping(address => DebtorSummary) public debtorSummary;
     mapping(address => uint256) public collaterabilityOfToken;
+    mapping(address => uint256) public userCollateralValue;
     mapping(address => address) public liquidationBeneficiaryOfToken;
     mapping(address => bool) public tokenRetired; // Since the whitelist is based on collatarability of token
     // We cannot retire it by setting it to 0 hence this mapping was added
@@ -56,7 +56,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     receive() external payable {
-        revert("CLending: ETH_NOT_ACCEPTED");
+        revert("ETH_NOT_ACCEPTED");
     }
 
     // It should be noted that this will change everything backwards in time meaning some people might be liquidated right away
@@ -126,7 +126,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         collaterabilityOfToken[token] = collaterabilityInDAI;
     }
 
-    function editTokenLiquiationBeneficiary(address token, address newBeneficiary) public onlyOwner {
+    function editTokenLiquidationBeneficiary(address token, address newBeneficiary) public onlyOwner {
         // Since beneficiary defaults to deadbeef it cannot be 0 if its been added before
         require(liquidationBeneficiaryOfToken[token] != address(0), "token not added");
         require(
@@ -150,15 +150,15 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     function repayLoan(IERC20 token, uint256 amount) public {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         (uint256 totalDebt, ) = liquidateDelinquent(msg.sender);
-        require(totalDebt > 0, "CLending: NOT_DEBT");
+        require(totalDebt > 0, "NOT_DEBT");
 
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
         uint256 offeredCollateralValue = amount * tokenCollateralAbility;
-        require(offeredCollateralValue > 0, "CLending: NOT_ENOUGH_COLLATERAL_OFFERED"); // covers both cases its a not supported token and 0 case
+        require(offeredCollateralValue > 0, "NOT_ENOUGH_COLLATERAL_OFFERED"); // covers both cases its a not supported token and 0 case
         require(tokenRetired[address(token)] == false, "CLending : TOKEN_RETIRED");
 
         uint256 _accruedInterest = accruedInterest(msg.sender);
-        require(offeredCollateralValue >= _accruedInterest, "CLending: INSUFFICIENT_AMOUNT"); // Has to be done because we have to update debt time
+        require(offeredCollateralValue >= _accruedInterest, "INSUFFICIENT_AMOUNT"); // Has to be done because we have to update debt time
         // Note that acured interest is never bigger than 10% of supplied collateral because of liquidateDelinquent call above
         if (offeredCollateralValue > totalDebt) {
             amount = quantityOfTokenForValueInDAI(totalDebt, tokenCollateralAbility);
@@ -171,7 +171,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
             // Send the repayment amt
             _wipeInterestOwed(userSummaryStorage);
         }
-        require(amount > 0, "CLending: REPAYMENT_NOT_SUCESSFUL");
+        require(amount > 0, "REPAYMENT_NOT_SUCESSFUL");
 
         token.safeTransferFrom(msg.sender, amount); // amount is changed if user supplies more than is neesesry to wipe their debt and interest
         emit Repayment(address(token), amount, block.timestamp, msg.sender);
@@ -192,7 +192,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         pure
         returns (uint256)
     {
-        require(tokenCollateralAbility > 0, "CLending: TOKEN_UNSUPPORTED");
+        require(tokenCollateralAbility > 0, "TOKEN_UNSUPPORTED");
         return quantityOfDAI / tokenCollateralAbility;
     }
 
@@ -205,26 +205,30 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         // Clear previous borrows & collateral for this user if they are delinquent
         liquidateDelinquent(user);
 
-        require(token != DAI, "CLending: DAI_IS_ONLY_FOR_REPAYMENT");
+        require(token != DAI, "DAI_IS_ONLY_FOR_REPAYMENT");
 
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)]; // essentially a whitelist
         require(tokenRetired[address(token)] == false, "CLending : TOKEN_RETIRED");
 
-        require(tokenCollateralAbility != 0, "CLending: NOT_ACCEPTED");
+        require(tokenCollateralAbility != 0, "NOT_ACCEPTED");
 
         token.safeTransferFrom(user, amount);
 
         // We pay interest already accrued with the same mechanism as repay fn
         uint256 accruedInterestInToken = quantityOfTokenForValueInDAI(accruedInterest(user), tokenCollateralAbility); // eg. 6000 accrued interest and 1 CORE == 1
 
-        require(accruedInterestInToken < amount, "CLending: INSUFFICIENT_AMOUNT"); //  we dont want 0 amount
+        require(accruedInterestInToken < amount, "INSUFFICIENT_AMOUNT"); //  we dont want 0 amount
 
         if (accruedInterestInToken > 0) {
             _safeTransfer(address(token), coreDAOTreasury, accruedInterestInToken);
         }
 
         // We add collateral into the user struct
-        _upsertCollateralInUserSummary(userSummaryStorage, token, amount - accruedInterestInToken);
+        userCollateralValue[user] = _upsertCollateralInUserSummary(
+            userSummaryStorage,
+            token,
+            amount - accruedInterestInToken
+        );
         emit CollateralAdded(address(token), amount, block.timestamp, msg.sender);
 
         _wipeInterestOwed(userSummaryStorage); // wipes accrued interest
@@ -259,24 +263,21 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     ) private {
         // We take users accrued interest and the amount borrowed
         // We repay the accured interest from the loan amount, by adding it on top of the loan amount
-        uint256 totalCollateral = userCollateralValue(user); // Value of collateral in DAI
+        uint256 totalCollateral = userCollateralValue[user]; // Value of collateral in DAI
         uint256 userAccruedInterest = accruedInterest(user); // Interest in DAI
         uint256 totalAmountBorrowed = userSummaryStorage.amountDAIBorrowed;
         uint256 totalDebt = userAccruedInterest + totalAmountBorrowed;
 
         require(amountBorrow > 0, "Borrow something"); // This is intentional after adding accured interest
-        require(totalDebt <= totalCollateral, "CLending: OVER_DEBTED");
+        require(totalDebt <= totalCollateral, "OVER_DEBTED");
 
         uint256 userRemainingCollateral = totalCollateral - totalDebt; // User's collateral before making this loan
         // If the amount borrow is higher than remaining collateral, cap it
         if (amountBorrow > userRemainingCollateral) {
             amountBorrow = userRemainingCollateral;
         }
-        // TODO write sanity tests
-        userSummaryStorage.amountDAIBorrowed =
-            userSummaryStorage.amountDAIBorrowed +
-            amountBorrow +
-            userAccruedInterest;
+
+        userSummaryStorage.amountDAIBorrowed += amountBorrow + userAccruedInterest;
         _wipeInterestOwed(userSummaryStorage); // because we added it to their borrowed amount
 
         DAI.transfer(user, amountBorrow); // DAI transfer function doesnt need safe transfer
@@ -291,21 +292,34 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         DebtorSummary storage userSummaryStorage,
         IERC20 token,
         uint256 amount
-    ) private {
+    ) private returns (uint256 collateralValue) {
         // Insert or update operation
         require(amount != 0, "Supply collateral");
+        bool collateralAdded;
+
         // Loops over all provided collateral, checks if its there and if it is edit it
         for (uint256 i = 0; i < userSummaryStorage.collateral.length; i++) {
-            if (userSummaryStorage.collateral[i].collateralAddress == address(token)) {
-                userSummaryStorage.collateral[i].amountCollateral =
-                    userSummaryStorage.collateral[i].amountCollateral +
-                    amount;
-                return; // we are just adding one collateral so we can return instead
+            Collateral storage collateral = userSummaryStorage.collateral[i];
+
+            if (collateral.collateralAddress == address(token)) {
+                collateral.amountCollateral += amount;
+                collateralAdded = true;
+            }
+
+            // Recalculate the user collateral value for unretired tokens.
+            if (!tokenRetired[collateral.collateralAddress]) {
+                collateralValue += collateral.amountCollateral * collaterabilityOfToken[collateral.collateralAddress];
             }
         }
 
         // If it has not been already supplied we push it on
-        userSummaryStorage.collateral.push(Collateral({collateralAddress: address(token), amountCollateral: amount}));
+        if (!collateralAdded) {
+            userSummaryStorage.collateral.push(
+                Collateral({collateralAddress: address(token), amountCollateral: amount})
+            );
+
+            collateralValue += amount * collaterabilityOfToken[address(token)];
+        }
     }
 
     function _isLiquidable(uint256 totalDebt, uint256 totalCollateral) private view returns (bool) {
@@ -315,10 +329,9 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     // Liquidates people in default
     function liquidateDelinquent(address user) public returns (uint256 totalDebt, uint256 totalCollateral) {
         totalDebt = userTotalDebt(user); // This is with interest
-        totalCollateral = userCollateralValue(user);
+        totalCollateral = userCollateralValue[user];
 
         if (_isLiquidable(totalDebt, totalCollateral)) {
-            console.log("User is liquidatable, liqudating");
             // user is in default, wipe their debt and collateral
             _liquidate(user);
             emit Liquidation(user, totalCollateral, block.timestamp, msg.sender);
@@ -328,7 +341,6 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
     function _liquidate(address user) private {
         for (uint256 i = 0; i < debtorSummary[user].collateral.length; i++) {
-            console.log("Liquidation loop count ", i + 1);
             uint256 amount = debtorSummary[user].collateral[i].amountCollateral;
             address currentCollateralAddress = debtorSummary[user].collateral[i].collateralAddress;
 
@@ -358,7 +370,9 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
             }
         }
 
-        delete debtorSummary[user]; // remove all collateral and debt
+        // remove all collateral, debt and collateral value cache
+        delete userCollateralValue[user];
+        delete debtorSummary[user];
     }
 
     function _safeTransfer(
@@ -369,14 +383,14 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         (bool success, bytes memory data) = token.call(
             abi.encodeWithSelector(bytes4(keccak256(bytes("transfer(address,uint256)"))), to, value)
         );
-        require(success && (data.length == 0 || abi.decode(data, (bool))), "cLending: TRANSFER_FAILED");
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "TRANSFER_FAILED");
     }
 
     function reclaimAllCollateral() external {
         (uint256 totalDebt, uint256 totalCollateral) = liquidateDelinquent(msg.sender);
 
-        require(totalCollateral > 0, "CLending: NOTHING_TO_CLAIM");
-        require(totalDebt == 0, "CLending: STILL_IN_DEBT");
+        require(totalCollateral > 0, "NOTHING_TO_CLAIM");
+        require(totalDebt == 0, "STILL_IN_DEBT");
 
         for (uint256 i = 0; i < debtorSummary[msg.sender].collateral.length; i++) {
             address collateralAddress = debtorSummary[msg.sender].collateral[i].collateralAddress;
@@ -390,27 +404,28 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         }
 
         // User doesnt have collateral anymore and paid off debt, bye
+        delete userCollateralValue[msg.sender];
         delete debtorSummary[msg.sender];
     }
 
-    function userCollateralValue(address user) public view returns (uint256 collateral) {
-        Collateral[] memory userCollateralTokens = debtorSummary[user].collateral;
-
-        for (uint256 i = 0; i < userCollateralTokens.length; i++) {
-            Collateral memory currentToken = userCollateralTokens[i];
-
-            if (tokenRetired[currentToken.collateralAddress]) {
-                continue; // If token is retired it has no value
-            }
-            uint256 tokenDebit = collaterabilityOfToken[currentToken.collateralAddress] * currentToken.amountCollateral;
-            collateral = collateral + tokenDebit;
-        }
+    function userCollaterals(address user) public view returns (Collateral[] memory) {
+        return debtorSummary[user].collateral;
     }
 
-    function userCollaterals(address user) public view returns (Collateral[] memory) {
-        Collateral[] memory userCollateralTokens = debtorSummary[user].collateral;
+    function userCollateral(address user, address collateralAddress)
+        public
+        view
+        returns (uint256 amountCollateral, int256 collateralIndex)
+    {
+        Collateral[] storage collaterals = debtorSummary[user].collateral;
 
-        return userCollateralTokens;
+        for (uint256 i = 0; i < collaterals.length; i++) {
+            if (collaterals[i].collateralAddress == collateralAddress) {
+                return (collaterals[i].amountCollateral, int256(i));
+            }
+        }
+
+        return (0, -1);
     }
 
     function userTotalDebt(address user) public view returns (uint256) {

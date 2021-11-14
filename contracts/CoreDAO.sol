@@ -20,7 +20,7 @@ contract CoreDAO is ERC20Votes {
     }
 
     function issue(address to, uint256 amount) public {
-        require(msg.sender == CORE_DAO_TREASURY, "CLending: NOT_TREASURY");
+        require(msg.sender == CORE_DAO_TREASURY, "NOT_TREASURY");
         _mint(to, amount);
     }
 }
