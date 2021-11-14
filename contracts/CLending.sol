@@ -165,9 +165,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
             userSummaryStorage.amountDAIBorrowed = 0;
             // Updating debt time is not nessesary since accrued interest on 0 will always be 0
         } else {
-            userSummaryStorage.amountDAIBorrowed =
-                userSummaryStorage.amountDAIBorrowed -
-                (offeredCollateralValue - _accruedInterest); // Parenthesis is important as their collateral is garnished by accrued interest repayment
+            userSummaryStorage.amountDAIBorrowed -= offeredCollateralValue - _accruedInterest;
             // Send the repayment amt
             _wipeInterestOwed(userSummaryStorage);
         }
@@ -196,6 +194,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         return quantityOfDAI / tokenCollateralAbility;
     }
 
+    /// From existing collateral + addedCollateral you can pay the interests:
+    /// First add the supplied collateral, then require the new collateral >= interests, then collateral -= interests and wipe interests.
     function _supplyCollateral(
         DebtorSummary storage userSummaryStorage,
         address user,
@@ -214,24 +214,32 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
         token.safeTransferFrom(user, amount);
 
+        uint256 accruedInterests = accruedInterest(user);
         // We pay interest already accrued with the same mechanism as repay fn
-        uint256 accruedInterestInToken = quantityOfTokenForValueInDAI(accruedInterest(user), tokenCollateralAbility); // eg. 6000 accrued interest and 1 CORE == 1
+        uint256 accruedInterestInToken = quantityOfTokenForValueInDAI(accruedInterests, tokenCollateralAbility); // eg. 6000 accrued interest and 1 CORE == 1
 
-        require(accruedInterestInToken < amount, "INSUFFICIENT_AMOUNT"); //  we dont want 0 amount
+        // We add collateral into the user struct
+        uint256 collateralIndex;
+        (userCollateralValue[user], collateralIndex) = _upsertCollateralInUserSummary(
+            userSummaryStorage,
+            token,
+            amount
+        );
+
+        require(
+            userSummaryStorage.collateral[collateralIndex].amountCollateral >= accruedInterestInToken,
+            "INSUFFICIENT_AMOUNT"
+        );
 
         if (accruedInterestInToken > 0) {
+            userSummaryStorage.collateral[collateralIndex].amountCollateral -= accruedInterestInToken;
+            userCollateralValue[user] -= accruedInterests;
+
             _safeTransfer(address(token), coreDAOTreasury, accruedInterestInToken);
         }
 
-        // We add collateral into the user struct
-        userCollateralValue[user] = _upsertCollateralInUserSummary(
-            userSummaryStorage,
-            token,
-            amount - accruedInterestInToken
-        );
+        _wipeInterestOwed(userSummaryStorage); // wipes accrued interests
         emit CollateralAdded(address(token), amount, block.timestamp, msg.sender);
-
-        _wipeInterestOwed(userSummaryStorage); // wipes accrued interest
     }
 
     function addCollateral(IERC20 token, uint256 amount) external {
@@ -292,7 +300,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         DebtorSummary storage userSummaryStorage,
         IERC20 token,
         uint256 amount
-    ) private returns (uint256 collateralValue) {
+    ) private returns (uint256 collateralValue, uint256 collateralIndex) {
         // Insert or update operation
         require(amount != 0, "Supply collateral");
         bool collateralAdded;
@@ -303,6 +311,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
             if (collateral.collateralAddress == address(token)) {
                 collateral.amountCollateral += amount;
+                collateralIndex = i;
                 collateralAdded = true;
             }
 
@@ -314,6 +323,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
         // If it has not been already supplied we push it on
         if (!collateralAdded) {
+            collateralIndex = userSummaryStorage.collateral.length;
             userSummaryStorage.collateral.push(
                 Collateral({collateralAddress: address(token), amountCollateral: amount})
             );
