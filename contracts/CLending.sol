@@ -194,8 +194,6 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         return quantityOfDAI / tokenCollateralAbility;
     }
 
-    /// From existing collateral + addedCollateral you can pay the interests:
-    /// First add the supplied collateral, then require the new collateral >= interests, then collateral -= interests and wipe interests.
     function _supplyCollateral(
         DebtorSummary storage userSummaryStorage,
         address user,
