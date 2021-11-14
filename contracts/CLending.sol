@@ -226,19 +226,18 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
             amount
         );
 
-        require(
-            userSummaryStorage.collateral[collateralIndex].amountCollateral >= accruedInterestInToken,
-            "INSUFFICIENT_AMOUNT"
-        );
-
         if (accruedInterestInToken > 0) {
+            require(
+                userSummaryStorage.collateral[collateralIndex].amountCollateral >= accruedInterestInToken,
+                "INSUFFICIENT_AMOUNT"
+            );
             userSummaryStorage.collateral[collateralIndex].amountCollateral -= accruedInterestInToken;
             userCollateralValue[user] -= accruedInterests;
 
             _safeTransfer(address(token), coreDAOTreasury, accruedInterestInToken);
+            _wipeInterestOwed(userSummaryStorage); // wipes accrued interests
         }
 
-        _wipeInterestOwed(userSummaryStorage); // wipes accrued interests
         emit CollateralAdded(address(token), amount, block.timestamp, msg.sender);
     }
 
