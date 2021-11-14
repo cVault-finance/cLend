@@ -419,22 +419,6 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         return debtorSummary[user].collateral;
     }
 
-    function userCollateral(address user, address collateralAddress)
-        public
-        view
-        returns (uint256 amountCollateral, int256 collateralIndex)
-    {
-        Collateral[] storage collaterals = debtorSummary[user].collateral;
-
-        for (uint256 i = 0; i < collaterals.length; i++) {
-            if (collaterals[i].collateralAddress == collateralAddress) {
-                return (collaterals[i].amountCollateral, int256(i));
-            }
-        }
-
-        return (0, -1);
-    }
-
     function userTotalDebt(address user) public view returns (uint256) {
         return accruedInterest(user) + debtorSummary[user].amountDAIBorrowed;
     }
