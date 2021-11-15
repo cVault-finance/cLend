@@ -39,7 +39,7 @@ describe("CoreDAO", function () {
 
   describe("#issue function", () => {
     it("revert if msg.sender is not treasury", async () => {
-      expect(coredao.connect(alice).issue(await bob.getAddress(), "1")).to.be.revertedWith("CLending: NOT_TREASURY")
+      expect(coredao.connect(alice).issue(await bob.getAddress(), "1")).to.be.revertedWith("NOT_TREASURY")
     })
 
     it("should issue DAO token by treasury", async () => {

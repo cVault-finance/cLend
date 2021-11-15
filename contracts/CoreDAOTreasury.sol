@@ -42,7 +42,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
     ) public onlyOwner {
         if (token == IERC20(address(0))) {
             (bool ok, ) = who.call{value: howManyTokens}("");
-            require(ok, "CLending: PAYMENT_FAILED");
+            require(ok, "PAYMENT_FAILED");
         } else {
             token.transfer(who, howManyTokens);
         }
@@ -71,7 +71,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
             mintAmount = mintAmount + (balanceLP3User * DAO_TOKENS_IN_LP3);
         }
 
-        require(mintAmount > 0, "CLending: NOTHING_TO_WRAP");
+        require(mintAmount > 0, "NOTHING_TO_WRAP");
 
         coreDAO.issue(msg.sender, mintAmount);
     }

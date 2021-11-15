@@ -53,7 +53,7 @@ describe("Lending", function () {
           to: cLending.address,
           value: utils.parseEther("1"),
         })
-      ).to.revertedWith("CLending: ETH_NOT_ACCEPTED")
+      ).to.revertedWith("ETH_NOT_ACCEPTED")
     })
   })
 
@@ -172,7 +172,7 @@ describe("Lending", function () {
     })
   })
 
-  describe("#editTokenLiquiationBeneficiary function", () => {
+  describe("#editTokenLiquidationBeneficiary function", () => {
     const token = getRandomAddress()
     const liquidationBeneficiary = getRandomAddress()
     const newLiquidationBeneficiary = getRandomAddress()
@@ -184,23 +184,23 @@ describe("Lending", function () {
     })
 
     it("revert if msg.sender is not owner", async () => {
-      await expect(cLending.connect(alice).editTokenLiquiationBeneficiary(token, newLiquidationBeneficiary)).to.revertedWith(
+      await expect(cLending.connect(alice).editTokenLiquidationBeneficiary(token, newLiquidationBeneficiary)).to.revertedWith(
         "Ownable: caller is not the owner"
       )
     })
 
     it("revert if token is CORE or CoreDAO", async () => {
-      await expect(cLending.connect(owner).editTokenLiquiationBeneficiary(CORE.address, newLiquidationBeneficiary)).to.revertedWith(
+      await expect(cLending.connect(owner).editTokenLiquidationBeneficiary(CORE.address, newLiquidationBeneficiary)).to.revertedWith(
         "Those should stay burned or floor doesnt hold"
       )
 
-      await expect(cLending.connect(owner).editTokenLiquiationBeneficiary(await cLending.coreDAO(), newLiquidationBeneficiary)).to.revertedWith(
+      await expect(cLending.connect(owner).editTokenLiquidationBeneficiary(await cLending.coreDAO(), newLiquidationBeneficiary)).to.revertedWith(
         "Those should stay burned or floor doesnt hold"
       )
     })
 
     it("should edit tokenLiquiationBeneficiary and emit TokenLiquidationBeneficiaryChanged event", async () => {
-      const tx = await cLending.connect(owner).editTokenLiquiationBeneficiary(token, newLiquidationBeneficiary)
+      const tx = await cLending.connect(owner).editTokenLiquidationBeneficiary(token, newLiquidationBeneficiary)
       const currentTime = await latest()
       expect(await cLending.liquidationBeneficiaryOfToken(token)).to.be.equal(newLiquidationBeneficiary)
 
@@ -210,7 +210,7 @@ describe("Lending", function () {
     })
 
     it("should set dead address when liquidationBeneficiary is zero address", async () => {
-      const tx = await cLending.connect(owner).editTokenLiquiationBeneficiary(token, EtherConstants.AddressZero)
+      const tx = await cLending.connect(owner).editTokenLiquidationBeneficiary(token, EtherConstants.AddressZero)
       const currentTime = await latest()
       expect(await cLending.liquidationBeneficiaryOfToken(token)).to.be.equal(constants.DEAD_BEEF)
 
@@ -228,7 +228,7 @@ describe("Lending", function () {
     })
 
     it("revert if token is DAI", async () => {
-      await expect(cLending.connect(alice).addCollateral(DAI.address, collateral)).to.revertedWith("CLending: DAI_IS_ONLY_FOR_REPAYMENT")
+      await expect(cLending.connect(alice).addCollateral(DAI.address, collateral)).to.revertedWith("DAI_IS_ONLY_FOR_REPAYMENT")
     })
 
     it("revert if token retired", async () => {
@@ -240,7 +240,7 @@ describe("Lending", function () {
       const MockTokenFactory = await ethers.getContractFactory("MockToken")
       const mockToken = await MockTokenFactory.connect(alice).deploy()
       await mockToken.connect(alice).approve(cLending.address, collateral)
-      await expect(cLending.connect(alice).addCollateral(mockToken.address, collateral)).to.revertedWith("CLending: NOT_ACCEPTED")
+      await expect(cLending.connect(alice).addCollateral(mockToken.address, collateral)).to.revertedWith("NOT_ACCEPTED")
     })
 
     it("revert if amount is zero", async () => {
@@ -274,7 +274,7 @@ describe("Lending", function () {
 
       await CORE.connect(alice).approve(cLending.address, interest.div(coreCollaterability))
       await expect(cLending.connect(alice).addCollateral(constants.CORE, interest.div(coreCollaterability))).to.revertedWith(
-        "CLending: INSUFFICIENT_AMOUNT"
+        "INSUFFICIENT_AMOUNT"
       )
     })
   })
@@ -298,7 +298,7 @@ describe("Lending", function () {
 
       await increase(timePeriod)
 
-      await expect(cLending.connect(alice).borrow(borrowAmount)).to.revertedWith("CLending: OVER_DEBTED")
+      await expect(cLending.connect(alice).borrow(borrowAmount)).to.revertedWith("OVER_DEBTED")
     })
 
     it("revert if no collateral", async () => {
@@ -390,11 +390,11 @@ describe("Lending", function () {
     })
 
     it("revert if no debt", async () => {
-      await expect(cLending.connect(bob).repayLoan(CORE.address, repayAmount)).to.revertedWith("CLending: NOT_DEBT")
+      await expect(cLending.connect(bob).repayLoan(CORE.address, repayAmount)).to.revertedWith("NOT_DEBT")
     })
 
     it("revert if amount is zero", async () => {
-      await expect(cLending.connect(alice).repayLoan(CORE.address, "0")).to.revertedWith("CLending: NOT_ENOUGH_COLLATERAL_OFFERED")
+      await expect(cLending.connect(alice).repayLoan(CORE.address, "0")).to.revertedWith("NOT_ENOUGH_COLLATERAL_OFFERED")
     })
 
     it("revert if token is retired", async () => {
@@ -407,7 +407,7 @@ describe("Lending", function () {
 
       const interest = borrowAmount.mul(yearlyPercentInterest).mul(currentTime.sub(firstDepositTime)).div(ONE_YEAR).div(getBigNumber(100, 0))
       await expect(cLending.connect(alice).repayLoan(CORE.address, interest.div(coreCollaterability).sub(BigNumber.from("1")))).to.revertedWith(
-        "CLending: INSUFFICIENT_AMOUNT"
+        "INSUFFICIENT_AMOUNT"
       )
     })
 
@@ -527,11 +527,11 @@ describe("Lending", function () {
 
     it("revert if debt is not zero", async () => {
       await cLending.connect(alice).borrow("1000")
-      await expect(cLending.connect(alice).reclaimAllCollateral()).to.revertedWith("CLending: STILL_IN_DEBT")
+      await expect(cLending.connect(alice).reclaimAllCollateral()).to.revertedWith("STILL_IN_DEBT")
     })
 
     it("revert if no collateral", async () => {
-      await expect(cLending.connect(bob).reclaimAllCollateral()).to.revertedWith("CLending: NOTHING_TO_CLAIM")
+      await expect(cLending.connect(bob).reclaimAllCollateral()).to.revertedWith("NOTHING_TO_CLAIM")
     })
 
     it("should reclaim collateral and emit CollateralReclaimed event per token", async () => {

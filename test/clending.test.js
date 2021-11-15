@@ -149,7 +149,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     await clend.borrow(tBN18(21000), { from: CORE_RICH });
     await expectRevert(
       clend.borrow(tBN18(1), { from: CORE_RICH }),
-      "CLending: OVER_DEBTED"
+      "OVER_DEBTED"
     );
   });
 
@@ -355,7 +355,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
 
     await expectRevert(
       clend.reclaimAllCollateral({ from: CORE_RICH }),
-      "CLending: NOTHING_TO_CLAIM"
+      "NOTHING_TO_CLAIM"
     );
 
     // This should have initiated CORE and COREDAO into the contract
@@ -394,7 +394,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     await clend.borrow("10000", { from: CORE_RICH });
     await expectRevert(
       clend.reclaimAllCollateral({ from: CORE_RICH }),
-      "CLending: STILL_IN_DEBT"
+      "STILL_IN_DEBT"
     );
 
     // Repay the debt

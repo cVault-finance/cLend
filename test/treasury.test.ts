@@ -97,7 +97,7 @@ describe("CoreDAOTreasury", function () {
 
   describe("#wrapVouchers function", async () => {
     it("revert if mint amount is zero", async () => {
-      await expect(treasury.connect(alice).wrapVouchers()).to.be.revertedWith("CLending: NOTHING_TO_WRAP")
+      await expect(treasury.connect(alice).wrapVouchers()).to.be.revertedWith("NOTHING_TO_WRAP")
     })
 
     it("should wrap vouchers", async () => {
