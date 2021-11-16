@@ -171,10 +171,10 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         }
         require(amount > 0, "REPAYMENT_NOT_SUCESSFUL");
 
+        userSummaryStorage.pendingInterests = 0; // clear user pending interests
         token.safeTransferFrom(msg.sender, amount); // amount is changed if user supplies more than is neesesry to wipe their debt and interest
         emit Repayment(address(token), amount, block.timestamp, msg.sender);
         emit InterestPaid(address(token), _accruedInterest, block.timestamp, msg.sender);
-        // Send the accrued interest back to the DAO
 
         uint256 amountTokensForInterstRepayment = quantityOfTokenForValueInDAI(
             _accruedInterest,
@@ -234,6 +234,9 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
             _safeTransfer(address(token), coreDAOTreasury, accruedInterestInToken);
             _wipeInterestOwed(userSummaryStorage); // wipes accrued interests
+
+            // clear pending interests
+            userSummaryStorage.pendingInterests = 0;
         }
 
         emit CollateralAdded(address(token), amount, block.timestamp, msg.sender);
@@ -282,15 +285,15 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
             amountBorrow = userRemainingCollateral;
         }
 
-        userSummaryStorage.amountDAIBorrowed += amountBorrow + userAccruedInterest;
+        userSummaryStorage.amountDAIBorrowed += amountBorrow;
+
+        // accumulate interests from previous loan separately
+        userSummaryStorage.pendingInterests += userAccruedInterest;
+
         _wipeInterestOwed(userSummaryStorage); // because we added it to their borrowed amount
 
         DAI.transfer(user, amountBorrow); // DAI transfer function doesnt need safe transfer
-        emit LoanTaken(amountBorrow + userAccruedInterest, block.timestamp, user); // real loan taken is with interest cause we are calculating interest on the interest repayment so its a loan
-        if (userAccruedInterest > 0) {
-            emit InterestPaid(address(DAI), userAccruedInterest, block.timestamp, user);
-            DAI.transfer(coreDAOTreasury, userAccruedInterest); // accured interest is in DAI, and we added it to amount borrowed
-        }
+        emit LoanTaken(amountBorrow, block.timestamp, user);
     }
 
     function _upsertCollateralInUserSummary(
@@ -426,7 +429,11 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     function accruedInterest(address user) public view returns (uint256) {
         DebtorSummary memory userSummaryMemory = debtorSummary[user];
         uint256 timeSinceLastLoan = block.timestamp - userSummaryMemory.timeLastBorrow;
-        return (userSummaryMemory.amountDAIBorrowed * yearlyPercentInterest * timeSinceLastLoan) / 365_00 days; // 365days * 100
+
+        // 365days * 100
+        return
+            ((userSummaryMemory.amountDAIBorrowed * yearlyPercentInterest * timeSinceLastLoan) / 365_00 days) +
+            userSummaryMemory.pendingInterests;
     }
 
     function _wipeInterestOwed(DebtorSummary storage userSummaryStorage) private {
