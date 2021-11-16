@@ -287,8 +287,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
         userSummaryStorage.amountDAIBorrowed += amountBorrow;
 
-        // accumulate interests from previous loan separately
-        userSummaryStorage.pendingInterests += userAccruedInterest;
+        // set interests from previous loan separately
+        userSummaryStorage.pendingInterests = userAccruedInterest;
 
         _wipeInterestOwed(userSummaryStorage); // because we added it to their borrowed amount
 
