@@ -233,6 +233,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
             _safeTransfer(address(token), coreDAOTreasury, accruedInterestInToken);
             _wipeInterestOwed(userSummaryStorage); // wipes accrued interests
+
+            emit InterestPaid(address(token), accruedInterests, block.timestamp, user);
         }
 
         emit CollateralAdded(address(token), amount, block.timestamp, msg.sender);
