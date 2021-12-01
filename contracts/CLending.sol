@@ -167,11 +167,10 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         } else {
             userSummaryStorage.amountDAIBorrowed -= offeredCollateralValue - _accruedInterest;
             // Send the repayment amt
-            _wipeInterestOwed(userSummaryStorage);
         }
+        _wipeInterestOwed(userSummaryStorage);
         require(amount > 0, "REPAYMENT_NOT_SUCESSFUL");
 
-        userSummaryStorage.pendingInterests = 0; // clear user pending interests
         token.safeTransferFrom(msg.sender, amount); // amount is changed if user supplies more than is neesesry to wipe their debt and interest
         emit Repayment(address(token), amount, block.timestamp, msg.sender);
         emit InterestPaid(address(token), _accruedInterest, block.timestamp, msg.sender);
@@ -234,9 +233,6 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
             _safeTransfer(address(token), coreDAOTreasury, accruedInterestInToken);
             _wipeInterestOwed(userSummaryStorage); // wipes accrued interests
-
-            // clear pending interests
-            userSummaryStorage.pendingInterests = 0;
         }
 
         emit CollateralAdded(address(token), amount, block.timestamp, msg.sender);
@@ -286,11 +282,10 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         }
 
         userSummaryStorage.amountDAIBorrowed += amountBorrow;
+        _wipeInterestOwed(userSummaryStorage); // because we added it to their borrowed amount
 
         // set interests from previous loan separately
         userSummaryStorage.pendingInterests = userAccruedInterest;
-
-        _wipeInterestOwed(userSummaryStorage); // because we added it to their borrowed amount
 
         DAI.transfer(user, amountBorrow); // DAI transfer function doesnt need safe transfer
         emit LoanTaken(amountBorrow, block.timestamp, user);
@@ -438,5 +433,6 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
     function _wipeInterestOwed(DebtorSummary storage userSummaryStorage) private {
         userSummaryStorage.timeLastBorrow = block.timestamp;
+        userSummaryStorage.pendingInterests = 0; // clear user pending interests
     }
 }
