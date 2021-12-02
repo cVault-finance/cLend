@@ -314,7 +314,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     );
   });
 
-  it("Repayment of accured interest should be taken out of outstanding debt when using the borrow function", async () => {
+  it("Borrow function should accumulated interests from previous loan in user's pendingInterests so it's not compounded", async () => {
     await initializeLendingContracts(20, 110, 5500);
     // This should have initiated CORE and COREDAO into the contract
 
@@ -330,24 +330,27 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     // We deposited 20,000 margin and borrowed 10,000
     // And waited about half a year so we should have 1000 in accured interest
     const treasuryDAIBefore = await dai.balanceOf(treasury.address);
+    const pendingInterests = await clend.accruedInterest(CORE_RICH);
     await clend.borrow(1, { from: CORE_RICH });
     const treasuryDAIAfter = await dai.balanceOf(treasury.address);
 
     await assert(
       (await clend.userCollateralValue(CORE_RICH)).eq(amountCoreDaoDeposited)
     ); // collateral value should stay the same
-    await assert((await clend.accruedInterest(CORE_RICH)).eq(tBN18(0))); // interst should be paid off
+
+    // should have the pending interests
+    await assert(
+      (await clend.accruedInterest(CORE_RICH)).gte(pendingInterests)
+    );
+
     await assert(
       (await clend.userTotalDebt(CORE_RICH)).gt(tBN18(10950)) &&
         (await clend.userTotalDebt(CORE_RICH)).lt(tBN18(11050))
     ); // total debt should be increased by about 10% from the borrow
 
-    // Treasury should get around 1000 more dai
+    // Treasury should not get anything yet
     const changeInDAIOfTreasury = treasuryDAIAfter.sub(treasuryDAIBefore);
-    await assert(
-      changeInDAIOfTreasury.gt(tBN18(950)) &&
-        changeInDAIOfTreasury.lt(tBN18(1050))
-    ); // total debt should be increased by about 10% from the borrow
+    await assert(changeInDAIOfTreasury.eq(tBN18(0)));
   });
 
   it("Removing all collateral should work correctly", async () => {
