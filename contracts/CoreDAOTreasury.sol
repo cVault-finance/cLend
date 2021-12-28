@@ -20,7 +20,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
     address private constant DEADBEEF = 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF;
 
     uint256 public constant DAO_TOKENS_IN_LP1 = 2250;
-    uint256 public constant DAO_TOKENS_IN_LP2 = 9250e14;
+    uint256 public constant DAO_TOKENS_IN_LP2 = 9250e5;
     uint256 public constant DAO_TOKENS_IN_LP3 = 45;
 
     ICOREDAO public coreDAO;
