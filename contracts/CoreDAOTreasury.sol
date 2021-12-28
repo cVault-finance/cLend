@@ -50,7 +50,10 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         emit Payment(who, address(token), howManyTokens, note);
     }
 
+
+    // No user supplied functions 
     function wrapVouchers() public {
+        // We check balances of all LP vouchers
         uint256 balanceLP1User = LP1_VOUCHER.balanceOf(msg.sender);
         uint256 balanceLP2User = LP2_VOUCHER.balanceOf(msg.sender);
         uint256 balanceLP3User = LP3_VOUCHER.balanceOf(msg.sender);
@@ -71,8 +74,16 @@ contract CoreDAOTreasury is OwnableUpgradeable {
             mintAmount = mintAmount + (balanceLP3User * DAO_TOKENS_IN_LP3);
         }
 
+        // No-0 check
         require(mintAmount > 0, "NOTHING_TO_WRAP");
 
+        // Absolutely redundant checks
+        // This function is just going to be called once per user so its not that important to be gas efficient
+        require(LP1_VOUCHER.balanceOf(msg.sender) == 0,"!!");
+        require(LP2_VOUCHER.balanceOf(msg.sender) == 0,"!!");
+        require(LP3_VOUCHER.balanceOf(msg.sender) == 0,"!!");
+
+        // Simple permissioned wrapper over the coreDAO token mint function
         coreDAO.issue(msg.sender, mintAmount);
     }
 }
