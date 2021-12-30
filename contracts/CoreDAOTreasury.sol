@@ -19,7 +19,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
     IERC20 public constant LP3_VOUCHER = IERC20(0xcA00F8eef4cE1F9183E06fA25fE7872fEDcf7456);
     address private constant DEADBEEF = 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF;
 
-    uint256 public constant DAO_TOKENS_IN_LP1 = 2250;
+    uint256 public constant DAO_TOKENS_IN_LP1 = 2350;
     uint256 public constant DAO_TOKENS_IN_LP2 = 9250e5;
     uint256 public constant DAO_TOKENS_IN_LP3 = 45;
 
