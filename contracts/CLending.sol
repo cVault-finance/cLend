@@ -22,7 +22,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     mapping(address => uint256) public collaterabilityOfToken;
     mapping(address => uint256) public userCollateralValue;
     mapping(address => address) public liquidationBeneficiaryOfToken;
-    mapping(address => bool) public tokenRetired; // Since the whitelist is based on collatarability of token
+    mapping(address => bool) public tokenRetired; // Since the whitelist is based on collaterability of token
     // We cannot retire it by setting it to 0 hence this mapping was added
 
     address public coreDAOTreasury;
