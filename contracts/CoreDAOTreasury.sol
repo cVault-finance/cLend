@@ -4,7 +4,6 @@ pragma solidity =0.8.6;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface ICOREDAO {
     function issue(address, uint256) external;
@@ -15,8 +14,6 @@ interface ICOREDAO {
  * @author CVault Finance
  */
 contract CoreDAOTreasury is OwnableUpgradeable {
-    using SafeERC20 for IERC20;
-
     IERC20 public constant LP1_VOUCHER = IERC20(0xF6Dd68031a22c8A3F1e7a424cE8F43a1e1A3be3E);
     IERC20 public constant LP2_VOUCHER = IERC20(0xb8ee07B5ED2FF9dae6C504C9dEe84151F844a591);
     IERC20 public constant LP3_VOUCHER = IERC20(0xcA00F8eef4cE1F9183E06fA25fE7872fEDcf7456);
@@ -47,7 +44,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
             (bool ok, ) = who.call{value: howManyTokens}("");
             require(ok, "PAYMENT_FAILED");
         } else {
-            token.safeTransfer(who, howManyTokens);
+            _safeTransfer(address(token), who, howManyTokens);
         }
 
         emit Payment(who, address(token), howManyTokens, note);
@@ -87,5 +84,16 @@ contract CoreDAOTreasury is OwnableUpgradeable {
 
         // Simple permissioned wrapper over the coreDAO token mint function
         coreDAO.issue(msg.sender, mintAmount);
+    }
+
+    function _safeTransfer(
+        address token,
+        address to,
+        uint256 value
+    ) private {
+        (bool success, bytes memory data) = token.call(
+            abi.encodeWithSelector(bytes4(keccak256(bytes("transfer(address,uint256)"))), to, value)
+        );
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "TRANSFER_FAILED");
     }
 }
