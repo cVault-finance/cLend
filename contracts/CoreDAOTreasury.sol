@@ -4,6 +4,7 @@ pragma solidity =0.8.6;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface ICOREDAO {
     function issue(address, uint256) external;
@@ -14,12 +15,14 @@ interface ICOREDAO {
  * @author CVault Finance
  */
 contract CoreDAOTreasury is OwnableUpgradeable {
+    using SafeERC20 for IERC20;
+
     IERC20 public constant LP1_VOUCHER = IERC20(0xF6Dd68031a22c8A3F1e7a424cE8F43a1e1A3be3E);
     IERC20 public constant LP2_VOUCHER = IERC20(0xb8ee07B5ED2FF9dae6C504C9dEe84151F844a591);
     IERC20 public constant LP3_VOUCHER = IERC20(0xcA00F8eef4cE1F9183E06fA25fE7872fEDcf7456);
     address private constant DEADBEEF = 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF;
 
-    uint256 public constant DAO_TOKENS_IN_LP1 = 2250;
+    uint256 public constant DAO_TOKENS_IN_LP1 = 2350;
     uint256 public constant DAO_TOKENS_IN_LP2 = 9250e5;
     uint256 public constant DAO_TOKENS_IN_LP3 = 45;
 
@@ -44,14 +47,13 @@ contract CoreDAOTreasury is OwnableUpgradeable {
             (bool ok, ) = who.call{value: howManyTokens}("");
             require(ok, "PAYMENT_FAILED");
         } else {
-            token.transfer(who, howManyTokens);
+            token.safeTransfer(who, howManyTokens);
         }
 
         emit Payment(who, address(token), howManyTokens, note);
     }
 
-
-    // No user supplied functions 
+    // No user supplied functions
     function wrapVouchers() public {
         // We check balances of all LP vouchers
         uint256 balanceLP1User = LP1_VOUCHER.balanceOf(msg.sender);
@@ -79,9 +81,9 @@ contract CoreDAOTreasury is OwnableUpgradeable {
 
         // Absolutely redundant checks
         // This function is just going to be called once per user so its not that important to be gas efficient
-        require(LP1_VOUCHER.balanceOf(msg.sender) == 0,"!!");
-        require(LP2_VOUCHER.balanceOf(msg.sender) == 0,"!!");
-        require(LP3_VOUCHER.balanceOf(msg.sender) == 0,"!!");
+        require(LP1_VOUCHER.balanceOf(msg.sender) == 0, "!!");
+        require(LP2_VOUCHER.balanceOf(msg.sender) == 0, "!!");
+        require(LP3_VOUCHER.balanceOf(msg.sender) == 0, "!!");
 
         // Simple permissioned wrapper over the coreDAO token mint function
         coreDAO.issue(msg.sender, mintAmount);
