@@ -46,7 +46,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
         changeLoanTerms(_yearlyPercentInterest, _loanDefaultThresholdPercent);
 
-        require(loanDefaultThresholdPercent > 100, "Instant liquidation would be possible");
+        require(loanDefaultThresholdPercent > 100, "WOULD_LIQUIDATE");
 
         addNewToken(address(_daoToken), DEADBEEF, 1, 18);
         addNewToken(address(CORE_TOKEN), DEADBEEF, _coreTokenCollaterability, 18);
@@ -61,7 +61,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
     // It should be noted that this will change everything backwards in time meaning some people might be liquidated right away
     function changeLoanTerms(uint256 _yearlyPercentInterest, uint256 _loanDefaultThresholdPercent) public onlyOwner {
-        require(_loanDefaultThresholdPercent > 100, "Instant liquidation would be possible");
+        require(_loanDefaultThresholdPercent > 100, "WOULD_LIQUIDATE");
 
         emit LoanTermsChanged(
             yearlyPercentInterest,
@@ -85,7 +85,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
             block.timestamp,
             msg.sender
         );
-        require(liquidationBeneficiaryOfToken[token] != address(0), "Token not added");
+        require(liquidationBeneficiaryOfToken[token] != address(0), "NOT_ADDED");
         if (newCollaterability == 0) {
             tokenRetired[token] = true;
         } else {
@@ -109,18 +109,15 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         /// collaterability of wbtc  40,000e10
         /// totalCollaterability = how much UNITS of DAI one UNIT of this token is worth
         // Collapse = worth less than 1 dai per unit ( 1e18 token is worth less than $1 or token has higher decimals than than 1e18)
-        require(
-            decimals == 18,
-            "This contract doesn't support tokens with amount of decimals different than 18. Do not use this token. Or everything will break"
-        );
+        require(decimals == 18, "UNSUPPORTED_DECIMALS");
         require(
             collaterabilityOfToken[token] == 0 && liquidationBeneficiaryOfToken[token] == address(0),
-            "Token already added"
+            "ALREADY_ADDED"
         );
         if (liquidationBeneficiary == address(0)) {
             liquidationBeneficiary = DEADBEEF;
         } // covers not send to 0 tokens
-        require(collaterabilityInDAI > 0, "Token collerability should be above 0");
+        require(collaterabilityInDAI > 0, "INVALID_COLLATERABILITY");
         emit NewTokenAdded(token, collaterabilityInDAI, liquidationBeneficiary, block.timestamp, msg.sender);
         liquidationBeneficiaryOfToken[token] = liquidationBeneficiary;
         collaterabilityOfToken[token] = collaterabilityInDAI;
@@ -128,11 +125,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
     function editTokenLiquidationBeneficiary(address token, address newBeneficiary) public onlyOwner {
         // Since beneficiary defaults to deadbeef it cannot be 0 if its been added before
-        require(liquidationBeneficiaryOfToken[token] != address(0), "token not added");
-        require(
-            token != address(CORE_TOKEN) && token != address(coreDAO),
-            "Those should stay burned or floor doesnt hold"
-        ); // Those should stay burned or floor doesnt hold
+        require(liquidationBeneficiaryOfToken[token] != address(0), "NOT_ADDED");
+        require(token != address(CORE_TOKEN) && token != address(coreDAO), "CANNOT_MODIFY"); // Those should stay burned or floor doesnt hold
         if (newBeneficiary == address(0)) {
             newBeneficiary = DEADBEEF;
         } // covers not send to 0 tokens
@@ -155,7 +149,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
         uint256 offeredCollateralValue = amount * tokenCollateralAbility;
         require(offeredCollateralValue > 0, "NOT_ENOUGH_COLLATERAL_OFFERED"); // covers both cases its a not supported token and 0 case
-        require(tokenRetired[address(token)] == false, "CLending : TOKEN_RETIRED");
+        require(tokenRetired[address(token)] == false, "TOKEN_RETIRED");
 
         uint256 _accruedInterest = accruedInterest(msg.sender);
         require(offeredCollateralValue >= _accruedInterest, "INSUFFICIENT_AMOUNT"); // Has to be done because we have to update debt time
@@ -205,7 +199,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         require(token != DAI, "DAI_IS_ONLY_FOR_REPAYMENT");
 
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)]; // essentially a whitelist
-        require(tokenRetired[address(token)] == false, "CLending : TOKEN_RETIRED");
+        require(tokenRetired[address(token)] == false, "TOKEN_RETIRED");
 
         require(tokenCollateralAbility != 0, "NOT_ACCEPTED");
 
@@ -274,7 +268,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         uint256 totalAmountBorrowed = userSummaryStorage.amountDAIBorrowed;
         uint256 totalDebt = userAccruedInterest + totalAmountBorrowed;
 
-        require(amountBorrow > 0, "Borrow something"); // This is intentional after adding accured interest
+        require(amountBorrow > 0, "NO_BORROW"); // This is intentional after adding accured interest
         require(totalDebt <= totalCollateral, "OVER_DEBTED");
 
         uint256 userRemainingCollateral = totalCollateral - totalDebt; // User's collateral before making this loan
@@ -299,7 +293,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         uint256 amount
     ) private returns (uint256 collateralValue, uint256 collateralIndex) {
         // Insert or update operation
-        require(amount != 0, "Supply collateral");
+        require(amount != 0, "INVALID_AMOUNT");
         bool collateralAdded;
 
         // Loops over all provided collateral, checks if its there and if it is edit it

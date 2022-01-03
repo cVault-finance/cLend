@@ -63,7 +63,7 @@ describe("Lending", function () {
     })
 
     it("revert if loanDefaultThresholdPercent is less than or equal to 100", async () => {
-      await expect(cLending.connect(owner).changeLoanTerms(10, 100)).to.revertedWith("Instant liquidation would be possible")
+      await expect(cLending.connect(owner).changeLoanTerms(10, 100)).to.revertedWith("WOULD_LIQUIDATE")
     })
 
     it("should update loan terms and emit LoanTermsChanged event", async () => {
@@ -94,7 +94,7 @@ describe("Lending", function () {
     })
 
     it("revert if token was not added", async () => {
-      await expect(cLending.connect(owner).editTokenCollaterability(getRandomAddress(), 120)).to.revertedWith("Token not added")
+      await expect(cLending.connect(owner).editTokenCollaterability(getRandomAddress(), 120)).to.revertedWith("NOT_ADDED")
     })
 
     it("should update token collaterability and emit TokenCollaterabilityChanged event", async () => {
@@ -133,20 +133,18 @@ describe("Lending", function () {
 
     it("revert if decimals is not 18", async () => {
       await expect(cLending.connect(owner).addNewToken(newToken, liquidationBeneficiary, collaterabilityInDAI, 17)).to.revertedWith(
-        "This contract doesn't support tokens with amount of decimals different than 18. Do not use this token. Or everything will break"
+        "UNSUPPORTED_DECIMALS"
       )
     })
 
     it("revert if token already added", async () => {
       await expect(cLending.connect(owner).addNewToken(CORE.address, liquidationBeneficiary, collaterabilityInDAI, decimals)).to.revertedWith(
-        "Token already added"
+        "ALREADY_ADDED"
       )
     })
 
     it("revert if collaterabilityInDAI is zero", async () => {
-      await expect(cLending.connect(owner).addNewToken(newToken, liquidationBeneficiary, 0, decimals)).to.revertedWith(
-        "Token collerability should be above 0"
-      )
+      await expect(cLending.connect(owner).addNewToken(newToken, liquidationBeneficiary, 0, decimals)).to.revertedWith("INVALID_COLLATERABILITY")
     })
 
     it("should add new token and emit NewTokenAdded event", async () => {
@@ -191,11 +189,11 @@ describe("Lending", function () {
 
     it("revert if token is CORE or CoreDAO", async () => {
       await expect(cLending.connect(owner).editTokenLiquidationBeneficiary(CORE.address, newLiquidationBeneficiary)).to.revertedWith(
-        "Those should stay burned or floor doesnt hold"
+        "CANNOT_MODIFY"
       )
 
       await expect(cLending.connect(owner).editTokenLiquidationBeneficiary(await cLending.coreDAO(), newLiquidationBeneficiary)).to.revertedWith(
-        "Those should stay burned or floor doesnt hold"
+        "CANNOT_MODIFY"
       )
     })
 
@@ -233,7 +231,7 @@ describe("Lending", function () {
 
     it("revert if token retired", async () => {
       await cLending.connect(owner).editTokenCollaterability(CORE.address, 0)
-      await expect(cLending.connect(alice).addCollateral(CORE.address, collateral)).to.revertedWith("CLending : TOKEN_RETIRED")
+      await expect(cLending.connect(alice).addCollateral(CORE.address, collateral)).to.revertedWith("TOKEN_RETIRED")
     })
 
     it("revert if token is not accepted", async () => {
@@ -244,8 +242,7 @@ describe("Lending", function () {
     })
 
     it("revert if amount is zero", async () => {
-      // TODO check
-      // await expect(cLending.connect(alice).addCollateral(CORE.address, 0)).to.revertedWith("Supply collateral")
+      await expect(cLending.connect(alice).addCollateral(CORE.address, 0)).to.revertedWith("INVALID_AMOUNT")
     })
 
     it("should let you put in CORE as collateral and get credit in each", async () => {
@@ -253,7 +250,7 @@ describe("Lending", function () {
 
       const currentTime = await latest()
       const userDebtorSummary = await cLending.debtorSummary(await alice.getAddress())
-      expect(userDebtorSummary.timeLastBorrow).to.be.equal(currentTime)
+      expect(userDebtorSummary.timeLastBorrow.toString()).to.be.equal("0")
       const credit = await cLending.userCollateralValue(await alice.getAddress())
 
       // Should be coreCollaterability core * collateral * 1e18
@@ -264,7 +261,7 @@ describe("Lending", function () {
         .withArgs(constants.CORE, collateral, currentTime, await alice.getAddress())
     })
 
-    it("revert if amount is less than accrued interest", async () => {
+    it("should not revert if amount is less than accrued interest", async () => {
       const borrowAmount = collateral.mul(coreCollaterability).div(BigNumber.from(2))
       await cLending.connect(alice).addCollateralAndBorrow(constants.CORE, collateral, borrowAmount)
       const timePeriod = getBigNumber(3600 * 24 * 7, 0)
@@ -273,7 +270,7 @@ describe("Lending", function () {
       const interest = borrowAmount.mul(yearlyPercentInterest).mul(timePeriod).div(ONE_YEAR).div(getBigNumber(100, 0))
 
       await CORE.connect(alice).approve(cLending.address, interest.div(coreCollaterability))
-      await expect(cLending.connect(alice).addCollateral(constants.CORE, interest.div(coreCollaterability))).to.revertedWith(
+      await expect(cLending.connect(alice).addCollateral(constants.CORE, interest.div(coreCollaterability))).to.not.revertedWith(
         "INSUFFICIENT_AMOUNT"
       )
     })
@@ -288,7 +285,7 @@ describe("Lending", function () {
     })
 
     it("revert if amount is zero", async () => {
-      await expect(cLending.connect(alice).borrow("0")).to.revertedWith("Borrow something")
+      await expect(cLending.connect(alice).borrow("0")).to.revertedWith("NO_BORROW")
     })
 
     it("revert if over debted", async () => {
@@ -360,7 +357,7 @@ describe("Lending", function () {
       const interest = borrowAmount1.mul(yearlyPercentInterest).mul(currentTime.sub(firstDepositTime)).div(ONE_YEAR).div(getBigNumber(100, 0))
 
       expect(await DAI.balanceOf(await alice.getAddress())).to.equal(aliceDaiBalanceBefore.add(borrowAmount2))
-      expect(await DAI.balanceOf(cLending.address)).to.be.equal(lendingDaiBalanceBefore.sub(borrowAmount2).sub(interest))
+      expect((await DAI.balanceOf(cLending.address)).toString()).to.be.equal(lendingDaiBalanceBefore.sub(borrowAmount2).toString())
       expect(tx)
         .to.emit(cLending, "LoanTaken")
         .withArgs(borrowAmount2.add(interest), currentTime, await alice.getAddress())
@@ -370,7 +367,7 @@ describe("Lending", function () {
         .withArgs(constants.DAI, interest, currentTime, await alice.getAddress())
 
       const debtorSummary = await cLending.debtorSummary(await alice.getAddress())
-      expect(debtorSummary.amountDAIBorrowed).to.be.equal(borrowAmount1.add(borrowAmount2).add(interest))
+      expect(debtorSummary.amountDAIBorrowed).to.be.equal(borrowAmount1.add(borrowAmount2))
       expect(debtorSummary.timeLastBorrow).to.be.equal(currentTime)
     })
   })
@@ -399,7 +396,7 @@ describe("Lending", function () {
 
     it("revert if token is retired", async () => {
       await cLending.connect(owner).editTokenCollaterability(CORE.address, 0)
-      await expect(cLending.connect(alice).repayLoan(CORE.address, repayAmount)).to.revertedWith("CLending : TOKEN_RETIRED")
+      await expect(cLending.connect(alice).repayLoan(CORE.address, repayAmount)).to.revertedWith("TOKEN_RETIRED")
     })
 
     it("revert if repay amount is less than interest", async () => {
@@ -517,7 +514,7 @@ describe("Lending", function () {
     })
   })
 
-  describe.only("#reclaimAllCollateral function", () => {
+  describe("#reclaimAllCollateral function", () => {
     const collateral = getBigNumber(20, 18)
 
     beforeEach(async () => {
