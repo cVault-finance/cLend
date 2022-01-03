@@ -357,13 +357,13 @@ describe("Lending", function () {
       const interest = borrowAmount1.mul(yearlyPercentInterest).mul(currentTime.sub(firstDepositTime)).div(ONE_YEAR).div(getBigNumber(100, 0))
 
       expect(await DAI.balanceOf(await alice.getAddress())).to.equal(aliceDaiBalanceBefore.add(borrowAmount2))
-      expect((await DAI.balanceOf(cLending.address)).toString()).to.be.equal(lendingDaiBalanceBefore.sub(borrowAmount2).toString())
+      expect(await DAI.balanceOf(cLending.address)).to.be.equal(lendingDaiBalanceBefore.sub(borrowAmount2))
       expect(tx)
         .to.emit(cLending, "LoanTaken")
-        .withArgs(borrowAmount2.add(interest), currentTime, await alice.getAddress())
+        .withArgs(borrowAmount2, currentTime, await alice.getAddress())
 
       expect(tx)
-        .to.emit(cLending, "InterestPaid")
+        .to.not.emit(cLending, "InterestPaid")
         .withArgs(constants.DAI, interest, currentTime, await alice.getAddress())
 
       const debtorSummary = await cLending.debtorSummary(await alice.getAddress())
