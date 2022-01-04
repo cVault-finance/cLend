@@ -51,24 +51,62 @@ contract CoreDAOTreasury is OwnableUpgradeable {
     }
 
     function wrapVouchers(
+        address to,
         uint256 balanceLP1User,
         uint256 balanceLP2User,
         uint256 balanceLP3User
     ) public {
+        _wrapVouchers(msg.sender, to, balanceLP1User, balanceLP2User, balanceLP3User);
+    }
+
+    function wrapAllVouchers() external {
+        // We check balances of all LP vouchers
+        uint256 balanceLP1User = LP1_VOUCHER.balanceOf(msg.sender);
+        uint256 balanceLP2User = LP2_VOUCHER.balanceOf(msg.sender);
+        uint256 balanceLP3User = LP3_VOUCHER.balanceOf(msg.sender);
+
+        _wrapVouchers(msg.sender, msg.sender, balanceLP1User, balanceLP2User, balanceLP3User);
+
+        // Absolutely redundant checks
+        // This function is just going to be called once per user so its not that important to be gas efficient
+        require(LP1_VOUCHER.balanceOf(msg.sender) == 0, "!!");
+        require(LP2_VOUCHER.balanceOf(msg.sender) == 0, "!!");
+        require(LP3_VOUCHER.balanceOf(msg.sender) == 0, "!!");
+    }
+
+    function wrapAllVouchersAtomic(address to) external {
+        uint256 balanceLP1User = LP1_VOUCHER.balanceOf(address(this));
+        uint256 balanceLP2User = LP2_VOUCHER.balanceOf(address(this));
+        uint256 balanceLP3User = LP3_VOUCHER.balanceOf(address(this));
+
+        _wrapVouchers(address(this), to, balanceLP1User, balanceLP2User, balanceLP3User);
+
+        require(LP1_VOUCHER.balanceOf(address(this)) == 0, "!!");
+        require(LP2_VOUCHER.balanceOf(address(this)) == 0, "!!");
+        require(LP3_VOUCHER.balanceOf(address(this)) == 0, "!!");
+    }
+
+    function _wrapVouchers(
+        address from,
+        address to,
+        uint256 balanceLP1User,
+        uint256 balanceLP2User,
+        uint256 balanceLP3User
+    ) internal {
         uint256 mintAmount;
 
         if (balanceLP1User > 0) {
-            LP1_VOUCHER.transferFrom(msg.sender, DEADBEEF, balanceLP1User);
+            LP1_VOUCHER.transferFrom(from, DEADBEEF, balanceLP1User);
             mintAmount = mintAmount + (balanceLP1User * DAO_TOKENS_IN_LP1);
         }
 
         if (balanceLP2User > 0) {
-            LP2_VOUCHER.transferFrom(msg.sender, DEADBEEF, balanceLP2User);
+            LP2_VOUCHER.transferFrom(from, DEADBEEF, balanceLP2User);
             mintAmount = mintAmount + (balanceLP2User * DAO_TOKENS_IN_LP2);
         }
 
         if (balanceLP3User > 0) {
-            LP3_VOUCHER.transferFrom(msg.sender, DEADBEEF, balanceLP3User);
+            LP3_VOUCHER.transferFrom(from, DEADBEEF, balanceLP3User);
             mintAmount = mintAmount + (balanceLP3User * DAO_TOKENS_IN_LP3);
         }
 
@@ -76,23 +114,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         require(mintAmount > 0, "NOTHING_TO_WRAP");
 
         // Simple permissioned wrapper over the coreDAO token mint function
-        coreDAO.issue(msg.sender, mintAmount);
-    }
-
-    // No user supplied functions
-    function wrapAllVouchers() external {
-        // We check balances of all LP vouchers
-        uint256 balanceLP1User = LP1_VOUCHER.balanceOf(msg.sender);
-        uint256 balanceLP2User = LP2_VOUCHER.balanceOf(msg.sender);
-        uint256 balanceLP3User = LP3_VOUCHER.balanceOf(msg.sender);
-
-        wrapVouchers(balanceLP1User, balanceLP2User, balanceLP3User);
-
-        // Absolutely redundant checks
-        // This function is just going to be called once per user so its not that important to be gas efficient
-        require(LP1_VOUCHER.balanceOf(msg.sender) == 0, "!!");
-        require(LP2_VOUCHER.balanceOf(msg.sender) == 0, "!!");
-        require(LP3_VOUCHER.balanceOf(msg.sender) == 0, "!!");
+        coreDAO.issue(to, mintAmount);
     }
 
     function _safeTransfer(
