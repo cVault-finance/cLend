@@ -50,12 +50,11 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         emit Payment(who, address(token), howManyTokens, note);
     }
 
-    // No user supplied functions
-    function wrapVouchers() public {
-        // We check balances of all LP vouchers
-        uint256 balanceLP1User = LP1_VOUCHER.balanceOf(msg.sender);
-        uint256 balanceLP2User = LP2_VOUCHER.balanceOf(msg.sender);
-        uint256 balanceLP3User = LP3_VOUCHER.balanceOf(msg.sender);
+    function wrapVouchers(
+        uint256 balanceLP1User,
+        uint256 balanceLP2User,
+        uint256 balanceLP3User
+    ) public {
         uint256 mintAmount;
 
         if (balanceLP1User > 0) {
@@ -76,14 +75,24 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         // No-0 check
         require(mintAmount > 0, "NOTHING_TO_WRAP");
 
+        // Simple permissioned wrapper over the coreDAO token mint function
+        coreDAO.issue(msg.sender, mintAmount);
+    }
+
+    // No user supplied functions
+    function wrapAllVouchers() external {
+        // We check balances of all LP vouchers
+        uint256 balanceLP1User = LP1_VOUCHER.balanceOf(msg.sender);
+        uint256 balanceLP2User = LP2_VOUCHER.balanceOf(msg.sender);
+        uint256 balanceLP3User = LP3_VOUCHER.balanceOf(msg.sender);
+
+        wrapVouchers(balanceLP1User, balanceLP2User, balanceLP3User);
+
         // Absolutely redundant checks
         // This function is just going to be called once per user so its not that important to be gas efficient
         require(LP1_VOUCHER.balanceOf(msg.sender) == 0, "!!");
         require(LP2_VOUCHER.balanceOf(msg.sender) == 0, "!!");
         require(LP3_VOUCHER.balanceOf(msg.sender) == 0, "!!");
-
-        // Simple permissioned wrapper over the coreDAO token mint function
-        coreDAO.issue(msg.sender, mintAmount);
     }
 
     function _safeTransfer(
