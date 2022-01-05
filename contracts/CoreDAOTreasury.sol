@@ -59,19 +59,22 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         return _wrapVouchers(msg.sender, to, balanceLP1User, balanceLP2User, balanceLP3User);
     }
 
-    function wrapAllVouchers() external returns (uint256 mintAmount) {
+    function wrapAllVouchers(address to) external returns (uint256 mintAmount) {
         // We check balances of all LP vouchers
         uint256 balanceLP1User = LP1_VOUCHER.balanceOf(msg.sender);
         uint256 balanceLP2User = LP2_VOUCHER.balanceOf(msg.sender);
         uint256 balanceLP3User = LP3_VOUCHER.balanceOf(msg.sender);
 
-        mintAmount = _wrapVouchers(msg.sender, msg.sender, balanceLP1User, balanceLP2User, balanceLP3User);
+        mintAmount = _wrapVouchers(msg.sender, to, balanceLP1User, balanceLP2User, balanceLP3User);
 
         // Absolutely redundant checks
         // This function is just going to be called once per user so its not that important to be gas efficient
-        require(LP1_VOUCHER.balanceOf(msg.sender) == 0, "!!");
-        require(LP2_VOUCHER.balanceOf(msg.sender) == 0, "!!");
-        require(LP3_VOUCHER.balanceOf(msg.sender) == 0, "!!");
+        require(
+            LP1_VOUCHER.balanceOf(msg.sender) == 0 &&
+                LP2_VOUCHER.balanceOf(msg.sender) == 0 &&
+                LP3_VOUCHER.balanceOf(msg.sender) == 0,
+            "vouchers remaining"
+        );
     }
 
     function wrapAllVouchersAtomic(address to) external returns (uint256 mintAmount) {
@@ -81,9 +84,12 @@ contract CoreDAOTreasury is OwnableUpgradeable {
 
         mintAmount = _wrapVouchers(address(this), to, balanceLP1User, balanceLP2User, balanceLP3User);
 
-        require(LP1_VOUCHER.balanceOf(address(this)) == 0, "!!");
-        require(LP2_VOUCHER.balanceOf(address(this)) == 0, "!!");
-        require(LP3_VOUCHER.balanceOf(address(this)) == 0, "!!");
+        require(
+            LP1_VOUCHER.balanceOf(msg.sender) == 0 &&
+                LP2_VOUCHER.balanceOf(msg.sender) == 0 &&
+                LP3_VOUCHER.balanceOf(msg.sender) == 0,
+            "vouchers remaining"
+        );
     }
 
     function _wrapVouchers(
