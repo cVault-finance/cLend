@@ -14,11 +14,13 @@ interface ICOREDAO {
  * @author CVault Finance
  */
 contract CoreDAOTreasury is OwnableUpgradeable {
+    // TODO : check addresses for 100% accuracy
     IERC20 public constant LP1_VOUCHER = IERC20(0xF6Dd68031a22c8A3F1e7a424cE8F43a1e1A3be3E);
     IERC20 public constant LP2_VOUCHER = IERC20(0xb8ee07B5ED2FF9dae6C504C9dEe84151F844a591);
     IERC20 public constant LP3_VOUCHER = IERC20(0xcA00F8eef4cE1F9183E06fA25fE7872fEDcf7456);
     address private constant DEADBEEF = 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF;
 
+    // TODO : check numbers for accuracy and conduct number tests
     uint256 public constant DAO_TOKENS_IN_LP1 = 2250;
     uint256 public constant DAO_TOKENS_IN_LP2 = 9250e5;
     uint256 public constant DAO_TOKENS_IN_LP3 = 45;
@@ -31,19 +33,25 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         __Ownable_init();
         coreDAO = _coreDAO;
     }
-
+    
+    // Allow contract to get ETH since we have a pay() function that lets ETH not get stuck
     receive() external payable {}
 
+    // Governor (owner contract) pays a community member with ETH or a token inside the treasury
+    // ETH can be transfered with supplying 0x0 for "token"
     function pay(
         IERC20 token,
         address payable who,
         uint256 howManyTokens,
         string memory note
     ) public onlyOwner {
+        // Flag ETH transfer
         if (token == IERC20(address(0))) {
             (bool ok, ) = who.call{value: howManyTokens}("");
             require(ok, "PAYMENT_FAILED");
+        // Normal token transfer
         } else {
+            // we dont check any returns cause it can be recalled
             token.transfer(who, howManyTokens);
         }
 
