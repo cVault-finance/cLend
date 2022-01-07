@@ -170,7 +170,7 @@ describe("Lending", function () {
     })
   })
 
-  describe("#editTokenLiquidationBeneficiary function", () => {
+  describe("#editTokenLiquiationBeneficiary function", () => {
     const token = getRandomAddress()
     const liquidationBeneficiary = getRandomAddress()
     const newLiquidationBeneficiary = getRandomAddress()

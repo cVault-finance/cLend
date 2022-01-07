@@ -20,12 +20,9 @@ contract CoreDAOTreasury is OwnableUpgradeable {
     IERC20 public constant LP3_VOUCHER = IERC20(0xcA00F8eef4cE1F9183E06fA25fE7872fEDcf7456);
     address private constant DEADBEEF = 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF;
 
-<<<<<<< HEAD
     // TODO : check numbers for accuracy and conduct number tests
-    uint256 public constant DAO_TOKENS_IN_LP1 = 2250;
-=======
+
     uint256 public constant DAO_TOKENS_IN_LP1 = 2350;
->>>>>>> main
     uint256 public constant DAO_TOKENS_IN_LP2 = 9250e5;
     uint256 public constant DAO_TOKENS_IN_LP3 = 45;
 
@@ -55,12 +52,8 @@ contract CoreDAOTreasury is OwnableUpgradeable {
             require(ok, "PAYMENT_FAILED");
         // Normal token transfer
         } else {
-<<<<<<< HEAD
             // we dont check any returns cause it can be recalled
-            token.transfer(who, howManyTokens);
-=======
             _safeTransfer(address(token), who, howManyTokens);
->>>>>>> main
         }
 
         emit Payment(who, address(token), howManyTokens, note);
