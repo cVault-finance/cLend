@@ -14,7 +14,7 @@ contract CoreDAO is ERC20Votes {
     /// @notice
     /// controller is initially the cLending contract, this can be modified
     /// by upgrading the cLending contract via the Governor contract voting with this tokens
-    constructor(uint256 startingCOREDAOAmount, address treasury) ERC20("CORE DAO", "coreDAO") ERC20Permit("CoreDAO") {
+    constructor(uint256 startingCOREDAOAmount, address treasury) ERC20("CORE DAO", "CoreDAO") ERC20Permit("CoreDAO") {
         CORE_DAO_TREASURY = treasury;
         _mint(treasury, startingCOREDAOAmount);
     }
