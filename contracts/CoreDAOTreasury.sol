@@ -20,8 +20,12 @@ contract CoreDAOTreasury is OwnableUpgradeable {
     IERC20 public constant LP3_VOUCHER = IERC20(0xcA00F8eef4cE1F9183E06fA25fE7872fEDcf7456);
     address private constant DEADBEEF = 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF;
 
+<<<<<<< HEAD
     // TODO : check numbers for accuracy and conduct number tests
     uint256 public constant DAO_TOKENS_IN_LP1 = 2250;
+=======
+    uint256 public constant DAO_TOKENS_IN_LP1 = 2350;
+>>>>>>> main
     uint256 public constant DAO_TOKENS_IN_LP2 = 9250e5;
     uint256 public constant DAO_TOKENS_IN_LP3 = 45;
 
@@ -51,15 +55,18 @@ contract CoreDAOTreasury is OwnableUpgradeable {
             require(ok, "PAYMENT_FAILED");
         // Normal token transfer
         } else {
+<<<<<<< HEAD
             // we dont check any returns cause it can be recalled
             token.transfer(who, howManyTokens);
+=======
+            _safeTransfer(address(token), who, howManyTokens);
+>>>>>>> main
         }
 
         emit Payment(who, address(token), howManyTokens, note);
     }
 
-
-    // No user supplied functions 
+    // No user supplied functions
     function wrapVouchers() public {
         // We check balances of all LP vouchers
         uint256 balanceLP1User = LP1_VOUCHER.balanceOf(msg.sender);
@@ -87,11 +94,22 @@ contract CoreDAOTreasury is OwnableUpgradeable {
 
         // Absolutely redundant checks
         // This function is just going to be called once per user so its not that important to be gas efficient
-        require(LP1_VOUCHER.balanceOf(msg.sender) == 0,"!!");
-        require(LP2_VOUCHER.balanceOf(msg.sender) == 0,"!!");
-        require(LP3_VOUCHER.balanceOf(msg.sender) == 0,"!!");
+        require(LP1_VOUCHER.balanceOf(msg.sender) == 0, "!!");
+        require(LP2_VOUCHER.balanceOf(msg.sender) == 0, "!!");
+        require(LP3_VOUCHER.balanceOf(msg.sender) == 0, "!!");
 
         // Simple permissioned wrapper over the coreDAO token mint function
         coreDAO.issue(msg.sender, mintAmount);
+    }
+
+    function _safeTransfer(
+        address token,
+        address to,
+        uint256 value
+    ) private {
+        (bool success, bytes memory data) = token.call(
+            abi.encodeWithSelector(bytes4(keccak256(bytes("transfer(address,uint256)"))), to, value)
+        );
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "TRANSFER_FAILED");
     }
 }
