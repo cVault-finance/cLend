@@ -82,12 +82,31 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         uint256 balanceLP2User = LP2_VOUCHER.balanceOf(address(this));
         uint256 balanceLP3User = LP3_VOUCHER.balanceOf(address(this));
 
-        mintAmount = _wrapVouchers(address(this), to, balanceLP1User, balanceLP2User, balanceLP3User);
+        if (balanceLP1User > 0) {
+            LP1_VOUCHER.transfer(DEADBEEF, balanceLP1User);
+            mintAmount = mintAmount + (balanceLP1User * DAO_TOKENS_IN_LP1);
+        }
+
+        if (balanceLP2User > 0) {
+            LP2_VOUCHER.transfer(DEADBEEF, balanceLP2User);
+            mintAmount = mintAmount + (balanceLP2User * DAO_TOKENS_IN_LP2);
+        }
+
+        if (balanceLP3User > 0) {
+            LP3_VOUCHER.transfer(DEADBEEF, balanceLP3User);
+            mintAmount = mintAmount + (balanceLP3User * DAO_TOKENS_IN_LP3);
+        }
+
+        // No-0 check
+        require(mintAmount > 0, "NOTHING_TO_WRAP");
+
+        // Simple permissioned wrapper over the coreDAO token mint function
+        coreDAO.issue(to, mintAmount);
 
         require(
-            LP1_VOUCHER.balanceOf(msg.sender) == 0 &&
-                LP2_VOUCHER.balanceOf(msg.sender) == 0 &&
-                LP3_VOUCHER.balanceOf(msg.sender) == 0,
+            LP1_VOUCHER.balanceOf(address(this)) == 0 &&
+                LP2_VOUCHER.balanceOf(address(this)) == 0 &&
+                LP3_VOUCHER.balanceOf(address(this)) == 0,
             "vouchers remaining"
         );
     }
