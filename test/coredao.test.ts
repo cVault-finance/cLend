@@ -10,7 +10,7 @@ describe("CoreDAO", function () {
   let treasury: CoreDAOTreasury
   const startingCoreDAOAmount = 30000000
   const NAME = "CORE DAO"
-  const SYMBOL = "coreDAO"
+  const SYMBOL = "CoreDAO"
 
   beforeEach(async function () {
     await deployments.fixture()
