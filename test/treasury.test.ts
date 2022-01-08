@@ -97,7 +97,7 @@ describe("CoreDAOTreasury", function () {
 
   describe("#wrapVouchers function", async () => {
     it("revert if mint amount is zero", async () => {
-      await expect(treasury.connect(alice).wrapVouchers()).to.be.revertedWith("NOTHING_TO_WRAP")
+      await expect(treasury.connect(alice).wrapAllVouchers(await alice.getAddress())).to.be.revertedWith("NOTHING_TO_WRAP")
     })
 
     it("should wrap vouchers", async () => {
@@ -126,7 +126,7 @@ describe("CoreDAOTreasury", function () {
       const deadBalanceLp2 = await LP2_VOUCHER.balanceOf(deadAddress)
       const deadBalanceLp3 = await LP3_VOUCHER.balanceOf(deadAddress)
 
-      await treasury.connect(alice).wrapVouchers()
+      await treasury.connect(alice).wrapAllVouchers(await alice.getAddress())
 
       const mintAmount = LP1_BALANCE.mul(DAO_TOKENS_IN_LP1).add(LP2_BALANCE.mul(DAO_TOKENS_IN_LP2)).add(LP3_BALANCE.mul(DAO_TOKENS_IN_LP3))
       expect(await LP1_VOUCHER.balanceOf(await alice.getAddress())).to.equal("0")

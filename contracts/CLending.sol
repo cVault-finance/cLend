@@ -169,12 +169,12 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         emit Repayment(address(token), amount, block.timestamp, msg.sender);
         emit InterestPaid(address(token), _accruedInterest, block.timestamp, msg.sender);
 
-        uint256 amountTokensForInterstRepayment = quantityOfTokenForValueInDAI(
+        uint256 amountTokensForInterestRepayment = quantityOfTokenForValueInDAI(
             _accruedInterest,
             tokenCollateralAbility
         );
-        if (amountTokensForInterstRepayment > 0) {
-            _safeTransfer(address(token), coreDAOTreasury, amountTokensForInterstRepayment);
+        if (amountTokensForInterestRepayment > 0) {
+            _safeTransfer(address(token), coreDAOTreasury, amountTokensForInterestRepayment);
         }
     }
 
@@ -254,7 +254,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         _borrow(userSummaryStorage, msg.sender, amount);
     }
 
-    // Repays all users accumulated interst with margin
+    // Repays all users accumulated interest with margin
     // Then checks if borrow can be preformed, adds it to total borrowed as well as transfers the dai to user
     function _borrow(
         DebtorSummary storage userSummaryStorage,
