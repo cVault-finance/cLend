@@ -1,17 +1,16 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { DeployFunction } from "hardhat-deploy/types"
 import { ethers, network } from "hardhat"
-import { CoreDAO, CoreDAOTreasury, CoreGovernor } from "../types"
+import { CoreDAO, CoreDAOTreasury, CoreGovernor, CoreVaultV3 } from "../types"
 
 const TIMELOCK_CONTROLLER_MIN_DELAY = 3 * 60 * 60 * 24 // 3 days
+const VAULT = "0xC5cacb708425961594B63eC171f4df27a9c0d8c9" // Now hold the ERC20Votes implementation for stCoreDAO (Voting weight)
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, getNamedAccounts } = hre
   const { deploy } = deployments
 
   const { deployer } = await getNamedAccounts()
-
-  const CoreDAO = await ethers.getContract<CoreDAO>("CoreDAO")
   const CoreDAOTreasury = await ethers.getContract<CoreDAOTreasury>("CoreDAOTreasury")
 
   await deploy("TimelockController", {
@@ -24,7 +23,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   await deploy("CoreGovernor", {
     from: deployer,
-    args: [CoreDAO.address, TimelockController.address],
+    args: [VAULT, TimelockController.address],
     log: true,
     deterministicDeployment: false,
   })
