@@ -109,6 +109,66 @@ describe("CoreGovernor", async () => {
     await advanceBlock()
     expect(await CoreGovernor.getVotes(user1Signer.address, blockNo)).to.be.eq("0")
   })
-  //it("should ")
-  // check delegatee voting power maintened even if unstake all
+
+  it("should not loss all voting weight when delegating to themselves but withdrawing some from the vault", async () => {
+    const stCoreDAOBalance = await Vault.balanceOf(user)
+
+    await Vault.connect(user1Signer).delegate(user1Signer.address)
+    let blockNo = await blockNumber()
+    await advanceBlock()
+
+    expect(await CoreGovernor.getVotes(user1Signer.address, blockNo)).to.be.eq(stCoreDAOBalance)
+
+    await Vault.withdraw(3, 0)
+
+    blockNo = await blockNumber()
+    await advanceBlock()
+    expect(await CoreGovernor.getVotes(user1Signer.address, blockNo)).to.be.eq(stCoreDAOBalance)
+
+    const userInfo = await Vault.userInfo(3, user)
+    await Vault.connect(user1Signer).withdraw(3, userInfo.amount.div(2))
+    expect(await Vault.balanceOf(user)).to.be.eq("0")
+    expect((await Vault.userInfo(3, user)).amount).to.be.eq("0")
+
+    blockNo = await blockNumber()
+    await advanceBlock()
+    expect(await CoreGovernor.getVotes(user1Signer.address, blockNo)).to.be.eq(stCoreDAOBalance.div(2))
+  })
+
+  it("should delegate voting to another user", async () => {
+    const stCoreDAOBalance = await Vault.balanceOf(user)
+    const stCoreDAOBalance2 = await Vault.balanceOf(user2)
+    let blockNo
+
+    await Vault.connect(user1Signer).delegate(user1Signer.address)
+    await Vault.connect(user2Signer).delegate(user1Signer.address)
+
+    blockNo = await blockNumber()
+    await advanceBlock()
+    expect(await CoreGovernor.getVotes(user1Signer.address, blockNo)).to.be.eq(stCoreDAOBalance.add(stCoreDAOBalance2))
+  })
+
+  it("should not loss all voting weight from other delegators when the delegatee withdraw all his token from the vault", async () => {
+    const stCoreDAOBalance = await Vault.balanceOf(user)
+    const stCoreDAOBalance2 = await Vault.balanceOf(user2)
+    let blockNo
+
+    await Vault.connect(user1Signer).delegate(user1Signer.address)
+    await Vault.connect(user2Signer).delegate(user1Signer.address)
+
+    blockNo = await blockNumber()
+    await advanceBlock()
+    expect(await CoreGovernor.getVotes(user1Signer.address, blockNo)).to.be.eq(stCoreDAOBalance.add(stCoreDAOBalance2))
+
+    const userInfo = await Vault.userInfo(3, user)
+    await Vault.connect(user1Signer).withdraw(3, userInfo.amount)
+    expect(await Vault.balanceOf(user)).to.be.eq("0")
+    expect((await Vault.userInfo(3, user)).amount).to.be.eq("0")
+
+    blockNo = await blockNumber()
+    await advanceBlock()
+
+    // User lost his own voting weight but still has delegators
+    expect(await CoreGovernor.getVotes(user1Signer.address, blockNo)).to.be.eq(stCoreDAOBalance2)
+  })
 })
