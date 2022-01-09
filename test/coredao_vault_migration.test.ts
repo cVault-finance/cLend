@@ -9,6 +9,7 @@ const VAULT = "0xC5cacb708425961594B63eC171f4df27a9c0d8c9"
 
 // user with vouchers in the 3 pools
 const user = "0x1cb3fae03e5f73df7cbbc75e1d236dc459c72436"
+const userWithLp1Only = "0x0932dc25c2eca97908d632eb0702d3feceb84455"
 
 describe("migrations / coredao vault migration", async () => {
   let snapshot
@@ -25,7 +26,7 @@ describe("migrations / coredao vault migration", async () => {
         {
           forking: {
             jsonRpcUrl: "https://eth-mainnet.alchemyapi.io/v2/TsLEJAhX87icgMO7ZVyPcpeEgpFEo96O",
-            blockNumber: 13919761,
+            blockNumber: 13965334,
           },
         },
       ],
@@ -33,7 +34,6 @@ describe("migrations / coredao vault migration", async () => {
 
     await deployments.fixture()
     await impersonate(DEPLOYER)
-    await impersonate(user)
 
     deployerSigner = await ethers.getSigner(DEPLOYER)
     Vault = await ethers.getContractAt<CoreVaultV3>("CoreVaultV3", VAULT)
@@ -68,6 +68,7 @@ describe("migrations / coredao vault migration", async () => {
   it("should migrate the user pool to coredao pool", async () => {
     await Vault.connect(deployerSigner).add(100, CoreDAO.address, true, true)
 
+    await impersonate(user)
     const coreBalanceBefore = await Core.balanceOf(user)
 
     // amount, rewardDebt
@@ -77,6 +78,8 @@ describe("migrations / coredao vault migration", async () => {
       await Vault.userInfo(2, user),
       await Vault.userInfo(3, user),
     ]
+
+    const coreRewards = (await Vault.pendingCore(0, user)).add(await Vault.pendingCore(1, user)).add(await Vault.pendingCore(2, user))
 
     expect(balancesBefore[0].amount).to.be.gt("0")
     expect(balancesBefore[1].amount).to.be.gt("0")
@@ -99,7 +102,59 @@ describe("migrations / coredao vault migration", async () => {
       await Vault.userInfo(3, user),
     ]
 
-    expect(coreBalanceAfter).to.be.gt(coreBalanceBefore)
+    expect(coreBalanceAfter.sub(coreBalanceBefore)).to.be.eq(coreRewards)
+    expect(balancesAfter[0].amount).to.be.equal("0")
+    expect(balancesAfter[1].amount).to.be.equal("0")
+    expect(balancesAfter[2].amount).to.be.equal("0")
+    expect(balancesAfter[0].rewardDebt).to.be.equal("0")
+    expect(balancesAfter[1].rewardDebt).to.be.equal("0")
+    expect(balancesAfter[2].rewardDebt).to.be.equal("0")
+
+    expect(balancesAfter[3].amount).to.be.gt("0")
+    expect(balancesAfter[3].rewardDebt).to.be.equal("0")
+  })
+
+  it("should migrate the user with only lp1 pool to coredao pool", async () => {
+    await Vault.connect(deployerSigner).add(100, CoreDAO.address, true, true)
+
+    await impersonate(userWithLp1Only)
+    const coreBalanceBefore = await Core.balanceOf(userWithLp1Only)
+
+    const userSigner = await ethers.getSigner(userWithLp1Only)
+
+    // amount, rewardDebt
+    const balancesBefore = [
+      await Vault.userInfo(0, userWithLp1Only),
+      await Vault.userInfo(1, userWithLp1Only),
+      await Vault.userInfo(2, userWithLp1Only),
+      await Vault.userInfo(3, userWithLp1Only),
+    ]
+
+    const coreRewards = (await Vault.pendingCore(0, userWithLp1Only))
+      .add(await Vault.pendingCore(1, userWithLp1Only))
+      .add(await Vault.pendingCore(2, userWithLp1Only))
+
+    expect(balancesBefore[0].amount).to.be.gt("0")
+    expect(balancesBefore[1].amount).to.be.eq("0")
+    expect(balancesBefore[2].amount).to.be.eq("0")
+    expect(balancesBefore[0].rewardDebt).to.be.gt("0")
+    expect(balancesBefore[1].rewardDebt).to.be.eq("0")
+    expect(balancesBefore[2].rewardDebt).to.be.eq("0")
+
+    expect(balancesBefore[3].amount).to.be.equal("0")
+    expect(balancesBefore[3].rewardDebt).to.be.equal("0")
+
+    await Vault.connect(userSigner).migrateVouchers()
+
+    const coreBalanceAfter = await Core.balanceOf(userWithLp1Only)
+    const balancesAfter = [
+      await Vault.userInfo(0, userWithLp1Only),
+      await Vault.userInfo(1, userWithLp1Only),
+      await Vault.userInfo(2, userWithLp1Only),
+      await Vault.userInfo(3, userWithLp1Only),
+    ]
+
+    expect(coreBalanceAfter.sub(coreBalanceBefore)).to.be.eq(coreRewards)
     expect(balancesAfter[0].amount).to.be.equal("0")
     expect(balancesAfter[1].amount).to.be.equal("0")
     expect(balancesAfter[2].amount).to.be.equal("0")
