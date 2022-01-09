@@ -41,7 +41,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // role the Governor instance should be granted, and it should likely be the only proposer in the system.
   await TimelockController.connect(deployerSigner).grantRole(PROPOSER_ROLE, CoreGovernor.address)
 
-  // he Executor role is in charge of executing already available operations: we can assign this role
+  // The Executor role is in charge of executing already available operations: we can assign this role
   // to the special zero address to allow anyone to execute (if operations can be particularly time sensitive,
   // the Governor should be made Executor instead).
   await TimelockController.connect(deployerSigner).grantRole(EXECUTOR_ROLE, ethers.constants.AddressZero)
@@ -50,12 +50,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // very sensitive role that will be granted automatically to both deployer and timelock itself, but
   // should be renounced by the deployer after setup.
   await TimelockController.connect(deployerSigner).revokeRole(TIMELOCK_ADMIN_ROLE, deployer)
-
-  if (network.live) {
-    // Set the Treasury ownership to the governance
-    console.log("Transferring CoreDAOTreasury ownership to CoreGovernor...")
-    await CoreDAOTreasury.connect(deployerSigner).transferOwnership(CoreGovernor.address)
-  }
 }
 
 export default func
