@@ -1,7 +1,7 @@
 import { expect } from "chai"
 import { BigNumber, Signer } from "ethers"
 import { ethers, deployments, network, getNamedAccounts } from "hardhat"
-import { CoreDAO, CoreGovernor, CoreVaultV3, IERC20, TimelockController } from "../types"
+import { CoreDAO, CoreDAOTreasury, CoreGovernor, CoreVaultV3, IERC20, TimelockController } from "../types"
 import { TimelockController__factory } from "../types/factories/TimelockController__factory"
 import { advanceBlock, blockNumber, getBigNumber, impersonate } from "./utilities"
 import { constants } from "../constants"
@@ -170,5 +170,38 @@ describe("CoreGovernor", async () => {
 
     // User lost his own voting weight but still has delegators
     expect(await CoreGovernor.getVotes(user1Signer.address, blockNo)).to.be.eq(stCoreDAOBalance2)
+  })
+
+  it("should add more voting weight when staking more and remove it once withdrawn", async () => {
+    const stCoreDAOBalance = await Vault.balanceOf(user)
+    let stCoreDAOBalance2 = await Vault.balanceOf(user2)
+    let blockNo
+
+    await Vault.connect(user1Signer).delegate(user1Signer.address)
+    await Vault.connect(user2Signer).delegate(user1Signer.address)
+
+    const amountAdded = getBigNumber(123456789)
+    const CoreDAOTreasury = await ethers.getContract<CoreDAOTreasury>("CoreDAOTreasury")
+    await impersonate(CoreDAOTreasury.address)
+    const treasurySigner = await ethers.getSigner(CoreDAOTreasury.address)
+    await CoreDAO.connect(treasurySigner).issue(user2, amountAdded)
+
+    blockNo = await blockNumber()
+    await advanceBlock()
+    expect(await CoreGovernor.getVotes(user1Signer.address, blockNo)).to.be.eq(stCoreDAOBalance.add(stCoreDAOBalance2))
+
+    await CoreDAO.connect(user2Signer).approve(Vault.address, amountAdded)
+    await Vault.connect(user2Signer).deposit(3, amountAdded)
+
+    blockNo = await blockNumber()
+    await advanceBlock()
+    expect(await CoreGovernor.getVotes(user1Signer.address, blockNo)).to.be.eq(stCoreDAOBalance.add(stCoreDAOBalance2).add(amountAdded))
+
+    stCoreDAOBalance2 = await Vault.balanceOf(user2)
+    await Vault.connect(user2Signer).withdraw(3, stCoreDAOBalance2)
+
+    blockNo = await blockNumber()
+    await advanceBlock()
+    expect(await CoreGovernor.getVotes(user1Signer.address, blockNo)).to.be.eq(stCoreDAOBalance)
   })
 })
