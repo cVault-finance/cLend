@@ -141,12 +141,12 @@ describe("CoreGovernor", async () => {
 
       const userInfo = await Vault.userInfo(3, user)
       await Vault.connect(user1Signer).withdraw(3, userInfo.amount.div(2))
-      expect(await Vault.balanceOf(user)).to.be.eq("0")
-      expect((await Vault.userInfo(3, user)).amount).to.be.eq("0")
+      expect(await Vault.balanceOf(user)).to.be.closeTo(userInfo.amount.div(2), 2)
+      expect((await Vault.userInfo(3, user)).amount).to.be.closeTo(userInfo.amount.div(2), 2)
 
       blockNo = await blockNumber()
       await advanceBlock()
-      expect(await CoreGovernor.getVotes(user1Signer.address, blockNo)).to.be.eq(stCoreDAOBalance.div(2))
+      expect(await CoreGovernor.getVotes(user1Signer.address, blockNo)).to.be.closeTo(stCoreDAOBalance.div(2), 2)
     })
 
     it("should delegate voting to another user", async () => {
