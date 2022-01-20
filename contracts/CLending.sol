@@ -40,6 +40,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         uint256 _loanDefaultThresholdPercent,
         uint256 _coreTokenCollaterability
     ) public initializer {
+
+        require(msg.sender == 0x5A16552f59ea34E44ec81E58b3817833E9fD5436,"BUM");
         __Ownable_init();
 
         coreDAOTreasury = _coreDAOTreasury;
@@ -76,7 +78,6 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         loanDefaultThresholdPercent = _loanDefaultThresholdPercent;
     }
 
-    // TODO add market supported check so can retire tokens to 0
     function editTokenCollaterability(address token, uint256 newCollaterability) external onlyOwner {
         emit TokenCollaterabilityChanged(
             token,
@@ -334,12 +335,15 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
         if (_isLiquidable(totalDebt, totalCollateral)) {
             // user is in default, wipe their debt and collateral
-            _liquidate(user);
+            _liquidate(user); // only callsite
             emit Liquidation(user, totalCollateral, block.timestamp, msg.sender);
             return (0, 0);
         }
     }
 
+    // Only called in liquidatedliquent
+    // function of great consequence
+    // Loops over all user supplied collateral of user, and sends it to burn/beneficiary + pays 0.5% to caller if caller is not the user being liquidated.
     function _liquidate(address user) private {
         for (uint256 i = 0; i < debtorSummary[user].collateral.length; i++) {
             uint256 amount = debtorSummary[user].collateral[i].amountCollateral;
@@ -390,6 +394,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     function reclaimAllCollateral() external {
         (uint256 totalDebt, uint256 totalCollateral) = liquidateDelinquent(msg.sender);
 
+        // Can only reclaim if there is collateral and 0 debt.
+        // If user was liquidated by above call, then this will revert
         require(totalCollateral > 0, "NOTHING_TO_CLAIM");
         require(totalDebt == 0, "STILL_IN_DEBT");
 
@@ -421,9 +427,12 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         DebtorSummary memory userSummaryMemory = debtorSummary[user];
         uint256 timeSinceLastLoan = block.timestamp - userSummaryMemory.timeLastBorrow;
 
-        // 365days * 100
+        // Formula :
+        // Accrued interest = 
+        // (DAI borrowed * percent interest per year * time since last loan ) / 365 days * 100 
+        // + interest already pending ( from previous updates )
         return
-            ((userSummaryMemory.amountDAIBorrowed * yearlyPercentInterest * timeSinceLastLoan) / 365_00 days) +
+            ((userSummaryMemory.amountDAIBorrowed * yearlyPercentInterest * timeSinceLastLoan) / 365_00 days) +   // 365days * 100 in seconds
             userSummaryMemory.pendingInterests;
     }
 

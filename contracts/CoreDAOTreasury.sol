@@ -31,6 +31,8 @@ contract CoreDAOTreasury is OwnableUpgradeable {
     event Payment(address toWho, address whatToken, uint256 howMuch, string note);
 
     function initialize(ICOREDAO _coreDAO) public initializer {
+        require(msg.sender == 0x5A16552f59ea34E44ec81E58b3817833E9fD5436,"BUM");
+
         __Ownable_init();
         coreDAO = _coreDAO;
     }
@@ -80,42 +82,43 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         // This function is just going to be called once per user so its not that important to be gas efficient
         require(
             LP1_VOUCHER.balanceOf(msg.sender) == 0 &&
-                LP2_VOUCHER.balanceOf(msg.sender) == 0 &&
-                LP3_VOUCHER.balanceOf(msg.sender) == 0,
+            LP2_VOUCHER.balanceOf(msg.sender) == 0 &&
+            LP3_VOUCHER.balanceOf(msg.sender) == 0,
             "vouchers remaining"
         );
     }
 
     function wrapAllVouchersAtomic(address to) external returns (uint256 mintAmount) {
-        uint256 balanceLP1User = LP1_VOUCHER.balanceOf(address(this));
-        uint256 balanceLP2User = LP2_VOUCHER.balanceOf(address(this));
-        uint256 balanceLP3User = LP3_VOUCHER.balanceOf(address(this));
+        uint256 balanceLP1 = LP1_VOUCHER.balanceOf(address(this));
+        uint256 balanceLP2 = LP2_VOUCHER.balanceOf(address(this));
+        uint256 balanceLP3 = LP3_VOUCHER.balanceOf(address(this));
 
-        if (balanceLP1User > 0) {
-            LP1_VOUCHER.transfer(DEADBEEF, balanceLP1User);
-            mintAmount = mintAmount + (balanceLP1User * DAO_TOKENS_IN_LP1);
+        if (balanceLP1 > 0) {
+            LP1_VOUCHER.transfer(DEADBEEF, balanceLP1);
+            mintAmount = mintAmount + (balanceLP1 * DAO_TOKENS_IN_LP1);
         }
 
-        if (balanceLP2User > 0) {
-            LP2_VOUCHER.transfer(DEADBEEF, balanceLP2User);
-            mintAmount = mintAmount + (balanceLP2User * DAO_TOKENS_IN_LP2);
+        if (balanceLP2 > 0) {
+            LP2_VOUCHER.transfer(DEADBEEF, balanceLP2);
+            mintAmount = mintAmount + (balanceLP2 * DAO_TOKENS_IN_LP2);
         }
 
-        if (balanceLP3User > 0) {
-            LP3_VOUCHER.transfer(DEADBEEF, balanceLP3User);
-            mintAmount = mintAmount + (balanceLP3User * DAO_TOKENS_IN_LP3);
+        if (balanceLP3 > 0) {
+            LP3_VOUCHER.transfer(DEADBEEF, balanceLP3);
+            mintAmount = mintAmount + (balanceLP3 * DAO_TOKENS_IN_LP3);
         }
 
         // No-0 check
         require(mintAmount > 0, "NOTHING_TO_WRAP");
+        require(to != address(0), "NO_ZERO_ADDRESS");
 
         // Simple permissioned wrapper over the coreDAO token mint function
         coreDAO.issue(to, mintAmount);
 
         require(
             LP1_VOUCHER.balanceOf(address(this)) == 0 &&
-                LP2_VOUCHER.balanceOf(address(this)) == 0 &&
-                LP3_VOUCHER.balanceOf(address(this)) == 0,
+            LP2_VOUCHER.balanceOf(address(this)) == 0 &&
+            LP3_VOUCHER.balanceOf(address(this)) == 0,
             "vouchers remaining"
         );
     }
@@ -144,6 +147,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
 
         // No-0 check
         require(mintAmount > 0, "NOTHING_TO_WRAP");
+        require(to != address(0), "NO_ZERO_ADDRESS");
 
         // Simple permissioned wrapper over the coreDAO token mint function
         coreDAO.issue(to, mintAmount);
