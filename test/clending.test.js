@@ -1,5 +1,5 @@
 const { expectRevert, time, BN } = require("@openzeppelin/test-helpers");
-const { assert, web3 } = require("hardhat");
+const { assert, web3, ethers } = require("hardhat");
 const { impersonate } = require("./utilities/impersonate.js");
 const hardhatConfig = require("../hardhat.config");
 const {
@@ -8,6 +8,7 @@ const {
   advanceTimeAndBlock,
 } = require("./utilities/time");
 const { expect } = require("chai");
+const ether = require("@openzeppelin/test-helpers/src/ether");
 
 const CLENDING_ARTIFACT = artifacts.require("CLending");
 const CORE_DAO_ARTIFACT = artifacts.require("CoreDAO");
@@ -34,14 +35,21 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     clend = await CLENDING_ARTIFACT.new();
     treasury = await DAO_TREASURY_ARTIFACT.new();
     coreDAO = await CORE_DAO_ARTIFACT.new(tBN18(100000), treasury.address);
-    await treasury.initialize(coreDAO.address);
+
+    await impersonate("0x5A16552f59ea34E44ec81E58b3817833E9fD5436");
+    await treasury.initialize(coreDAO.address, {
+      from: "0x5A16552f59ea34E44ec81E58b3817833E9fD5436",
+    });
 
     await clend.initialize(
       treasury.address,
       coreDAO.address,
       yearlyInterest,
       defaultThresholdPercent,
-      coreCollaterability
+      coreCollaterability,
+      {
+        from: "0x5A16552f59ea34E44ec81E58b3817833E9fD5436",
+      }
     );
     await impersonate(CORE_RICH);
 
@@ -58,7 +66,10 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
       coreDAO.address,
       "0x5A16552f59ea34E44ec81E58b3817833E9fD5436",
       tBN18(100000),
-      "benis"
+      "benis",
+      {
+        from: "0x5A16552f59ea34E44ec81E58b3817833E9fD5436",
+      }
     ); //send 100k coreDAO to deployer for tests purposes
 
     await coreDAO.approve(clend.address, "999999999999999999999999999999999", {
