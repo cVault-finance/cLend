@@ -23,7 +23,8 @@
     "mainnet:export": "hardhat --network mainnet export --export exports/mainnet.json",
     "goerli:deploy": "hardhat --network goerli deploy",
     "goerli:verify": "hardhat --network goerli etherscan-verify --solc-input",
-    "goerli:export": "hardhat --network goerli export --export exports/goerli.json"
+    "goerli:export": "hardhat --network goerli export --export exports/goerli.json",
+    "bytecode": "node deploy_bytecode_getter.js"
   },
   "author": "",
   "license": "UNLICENSED",
