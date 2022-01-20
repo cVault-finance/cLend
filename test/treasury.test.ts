@@ -34,6 +34,7 @@ describe("CoreDAOTreasury", function () {
     coredao = await ethers.getContract("CoreDAO")
     treasury = await ethers.getContract("CoreDAOTreasury")
 
+    expect(coredao.address).to.be.eq(await treasury.coreDAO())
     coreVault = await ethers.provider.getSigner(constants.CORE_VAULT)
 
     LP1_VOUCHER = IERC20__factory.connect(await treasury.LP1_VOUCHER(), owner)
@@ -50,10 +51,6 @@ describe("CoreDAOTreasury", function () {
   describe("check initial state", async () => {
     it("check owner", async () => {
       expect(await treasury.owner()).to.equal(await owner.getAddress())
-    })
-
-    it("check coredao", async () => {
-      expect(await treasury.coreDAO()).to.equal(coredao.address)
     })
   })
 
@@ -102,7 +99,7 @@ describe("CoreDAOTreasury", function () {
 
   describe("#wrapVouchers function", async () => {
     it("revert if mint amount is zero", async () => {
-      await expect(treasury.connect(alice).wrapAllVouchers(await alice.getAddress())).to.be.revertedWith("NOTHING_TO_WRAP")
+      await expect(treasury.connect(alice).wrapVouchers(await alice.getAddress(), 0, 0, 0)).to.be.revertedWith("NOTHING_TO_WRAP")
     })
 
     it("should wrap vouchers", async () => {
@@ -131,7 +128,7 @@ describe("CoreDAOTreasury", function () {
       const deadBalanceLp2 = await LP2_VOUCHER.balanceOf(deadAddress)
       const deadBalanceLp3 = await LP3_VOUCHER.balanceOf(deadAddress)
 
-      await treasury.connect(alice).wrapAllVouchers(await alice.getAddress())
+      await treasury.connect(alice).wrapVouchers(await alice.getAddress(), LP1_BALANCE, LP2_BALANCE, LP3_BALANCE)
 
       const mintAmount = LP1_BALANCE.mul(DAO_TOKENS_IN_LP1).add(LP2_BALANCE.mul(DAO_TOKENS_IN_LP2)).add(LP3_BALANCE.mul(DAO_TOKENS_IN_LP3))
       expect(await LP1_VOUCHER.balanceOf(await alice.getAddress())).to.equal("0")

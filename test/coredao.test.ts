@@ -8,7 +8,6 @@ describe("CoreDAO", function () {
   let bob: Signer
   let coredao: CoreDAO
   let treasury: CoreDAOTreasury
-  const startingCoreDAOAmount = 30000000
   const NAME = "CORE DAO"
   const SYMBOL = "CoreDAO"
 
@@ -26,14 +25,6 @@ describe("CoreDAO", function () {
     it("check tokenomics", async () => {
       expect(await coredao.name()).to.equal(NAME)
       expect(await coredao.symbol()).to.equal(SYMBOL)
-    })
-
-    it("check treasury", async () => {
-      expect(await coredao.CORE_DAO_TREASURY()).to.equal(treasury.address)
-    })
-
-    it("check treasury balance", async () => {
-      expect(await coredao.balanceOf(treasury.address)).to.equal(startingCoreDAOAmount)
     })
   })
 

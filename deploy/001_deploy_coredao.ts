@@ -12,12 +12,17 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deploy } = deployments
 
   const { deployer } = await getNamedAccounts()
-  const Treasury = await ethers.getContract<CoreDAOTreasury>("CoreDAOTreasury")
+  const Treasury = await ethers.getContractAt<CoreDAOTreasury>("CoreDAOTreasury", "0xe508a37101FCe81AB412626eE5F1A648244380de")
+
+  await deployments.save("CoreDAOTreasury", {
+    abi: require("../abi/CoreDAOTreasury.json"),
+    address: Treasury.address,
+  })
 
   await deploy("CoreDAO", {
     from: deployer,
     log: true,
-    args: [startingCOREDAOAmount, Treasury.address],
+    args: [startingCOREDAOAmount],
     deterministicDeployment: false,
   })
   const CoreDAO = await ethers.getContract<CoreDAO>("CoreDAO")
@@ -33,4 +38,4 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
 export default func
 func.tags = ["CoreDAO"]
-func.dependencies = ["CoreDAOTreasury"]
+func.dependencies = []

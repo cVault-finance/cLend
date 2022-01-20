@@ -15,7 +15,7 @@ const VAULT = "0xC5cacb708425961594B63eC171f4df27a9c0d8c9"
 const user = "0x1cb3fae03e5f73df7cbbc75e1d236dc459c72436"
 const user2 = "0x0932dc25c2eca97908d632eb0702d3feceb84455"
 
-describe("CoreGovernor", async () => {
+xdescribe("CoreGovernor", async () => {
   let snapshot
   let CoreDAO: CoreDAO
   let CoreGovernor: CoreGovernor
