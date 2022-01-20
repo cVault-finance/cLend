@@ -66,70 +66,8 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         uint256 balanceLP1User,
         uint256 balanceLP2User,
         uint256 balanceLP3User
-    ) external returns (uint256) {
-        return _wrapVouchers(msg.sender, to, balanceLP1User, balanceLP2User, balanceLP3User);
-    }
-
-    function wrapAllVouchers(address to) external returns (uint256 mintAmount) {
-        // We check balances of all LP vouchers
-        uint256 balanceLP1User = LP1_VOUCHER.balanceOf(msg.sender);
-        uint256 balanceLP2User = LP2_VOUCHER.balanceOf(msg.sender);
-        uint256 balanceLP3User = LP3_VOUCHER.balanceOf(msg.sender);
-
-        mintAmount = _wrapVouchers(msg.sender, to, balanceLP1User, balanceLP2User, balanceLP3User);
-
-        // Absolutely redundant checks
-        // This function is just going to be called once per user so its not that important to be gas efficient
-        require(
-            LP1_VOUCHER.balanceOf(msg.sender) == 0 &&
-            LP2_VOUCHER.balanceOf(msg.sender) == 0 &&
-            LP3_VOUCHER.balanceOf(msg.sender) == 0,
-            "vouchers remaining"
-        );
-    }
-
-    function wrapAllVouchersAtomic(address to) external returns (uint256 mintAmount) {
-        uint256 balanceLP1 = LP1_VOUCHER.balanceOf(address(this));
-        uint256 balanceLP2 = LP2_VOUCHER.balanceOf(address(this));
-        uint256 balanceLP3 = LP3_VOUCHER.balanceOf(address(this));
-
-        if (balanceLP1 > 0) {
-            LP1_VOUCHER.transfer(DEADBEEF, balanceLP1);
-            mintAmount = mintAmount + (balanceLP1 * DAO_TOKENS_IN_LP1);
-        }
-
-        if (balanceLP2 > 0) {
-            LP2_VOUCHER.transfer(DEADBEEF, balanceLP2);
-            mintAmount = mintAmount + (balanceLP2 * DAO_TOKENS_IN_LP2);
-        }
-
-        if (balanceLP3 > 0) {
-            LP3_VOUCHER.transfer(DEADBEEF, balanceLP3);
-            mintAmount = mintAmount + (balanceLP3 * DAO_TOKENS_IN_LP3);
-        }
-
-        // No-0 check
-        require(mintAmount > 0, "NOTHING_TO_WRAP");
-        require(to != address(0), "NO_ZERO_ADDRESS");
-
-        // Simple permissioned wrapper over the coreDAO token mint function
-        coreDAO.issue(to, mintAmount);
-
-        require(
-            LP1_VOUCHER.balanceOf(address(this)) == 0 &&
-            LP2_VOUCHER.balanceOf(address(this)) == 0 &&
-            LP3_VOUCHER.balanceOf(address(this)) == 0,
-            "vouchers remaining"
-        );
-    }
-
-    function _wrapVouchers(
-        address from,
-        address to,
-        uint256 balanceLP1User,
-        uint256 balanceLP2User,
-        uint256 balanceLP3User
-    ) internal returns (uint256 mintAmount) {
+    ) external returns (uint256 mintAmount) {
+        address from = msg.sender;
         if (balanceLP1User > 0) {
             LP1_VOUCHER.transferFrom(from, DEADBEEF, balanceLP1User);
             mintAmount = mintAmount + (balanceLP1User * DAO_TOKENS_IN_LP1);
