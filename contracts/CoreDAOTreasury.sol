@@ -26,17 +26,15 @@ contract CoreDAOTreasury is OwnableUpgradeable {
     uint256 public constant DAO_TOKENS_IN_LP2 = 9250e5;
     uint256 public constant DAO_TOKENS_IN_LP3 = 45;
 
-    ICOREDAO public immutable coreDAO;
-    constructor () {
-        coreDAO = ICOREDAO(msg.sender);
-    }
+    ICOREDAO public coreDAO;
 
     event Payment(address toWho, address whatToken, uint256 howMuch, string note);
 
-    function initialize() public initializer {
+    function initialize(ICOREDAO _coreDAO) public initializer {
         require(msg.sender == 0x5A16552f59ea34E44ec81E58b3817833E9fD5436,"BUM");
 
         __Ownable_init();
+        coreDAO = _coreDAO;
     }
     
     // Allow contract to get ETH since we have a pay() function that lets ETH not get stuck
