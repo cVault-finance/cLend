@@ -25,6 +25,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
     uint256 public constant DAO_TOKENS_IN_LP1 = 2350;
     uint256 public constant DAO_TOKENS_IN_LP2 = 9250e5;
     uint256 public constant DAO_TOKENS_IN_LP3 = 45;
+    bool live = false;
 
     ICOREDAO public coreDAO;
 
@@ -35,6 +36,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
 
         __Ownable_init();
         coreDAO = _coreDAO;
+        live = true;
     }
     
     // Allow contract to get ETH since we have a pay() function that lets ETH not get stuck
@@ -67,6 +69,7 @@ contract CoreDAOTreasury is OwnableUpgradeable {
         uint256 balanceLP2User,
         uint256 balanceLP3User
     ) external returns (uint256 mintAmount) {
+        require(live, "Wrapping not yet available");
         address from = msg.sender;
         if (balanceLP1User > 0) {
             LP1_VOUCHER.transferFrom(from, DEADBEEF, balanceLP1User);

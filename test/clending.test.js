@@ -20,6 +20,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
   const CORE_RICH = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"; // deployer
   const DAI_RICH = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"; // deployer
   const BURN_ADDRESS = "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF";
+  const TREASURY_PROXY_ADDRESS = "0xe508a37101FCe81AB412626eE5F1A648244380de";
 
   let clend;
   let treasury;
@@ -33,8 +34,9 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     coreCollaterability = 5500
   ) {
     clend = await CLENDING_ARTIFACT.new();
-    treasury = await DAO_TREASURY_ARTIFACT.new();
-    coreDAO = await CORE_DAO_ARTIFACT.new(tBN18(100000), treasury.address);
+    // treasury = await DAO_TREASURY_ARTIFACT.new();
+    treasury = await DAO_TREASURY_ARTIFACT.at(TREASURY_PROXY_ADDRESS);
+    coreDAO = await CORE_DAO_ARTIFACT.new(tBN18(100000));
 
     await impersonate("0x5A16552f59ea34E44ec81E58b3817833E9fD5436");
     await treasury.initialize(coreDAO.address, {
