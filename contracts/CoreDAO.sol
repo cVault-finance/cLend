@@ -22,4 +22,8 @@ contract CoreDAO is ERC20 {
         require(msg.sender == CORE_DAO_TREASURY, "NOT_TREASURY");
         _mint(to, amount);
     }
+
+    function burn(uint256 amount) public {
+        _burn(msg.sender, amount);
+    }
 }

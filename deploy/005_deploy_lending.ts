@@ -9,6 +9,7 @@ import { expect } from "chai"
 const YEARLY_PERCENT_INTEREST = 20
 const LOAN_DEFAULT_TRESHOLD = 110
 const CORE_TOKEN_COLLATERABILITY = 5500
+const DEPLOYER = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, getNamedAccounts } = hre
@@ -31,7 +32,26 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const CoreDAO = await ethers.getContract("CoreDAO")
   const CORE = await ethers.getContractAt<CORE>("CORE", constants.CORE)
   const CoreDAOTreasury = await ethers.getContract<CoreDAOTreasury>("CoreDAOTreasury")
-  await CLending.initialize(CoreDAOTreasury.address, CoreDAO.address, YEARLY_PERCENT_INTEREST, LOAN_DEFAULT_TRESHOLD, CORE_TOKEN_COLLATERABILITY)
+
+  if (!network.live) {
+    await impersonate(DEPLOYER)
+    const deployerSigner = await ethers.getSigner(DEPLOYER)
+    await CLending.connect(deployerSigner).initialize(
+      CoreDAOTreasury.address,
+      CoreDAO.address,
+      YEARLY_PERCENT_INTEREST,
+      LOAN_DEFAULT_TRESHOLD,
+      CORE_TOKEN_COLLATERABILITY
+    )
+  } else {
+    await CLending.initialize(
+      CoreDAOTreasury.address,
+      CoreDAO.address,
+      YEARLY_PERCENT_INTEREST,
+      LOAN_DEFAULT_TRESHOLD,
+      CORE_TOKEN_COLLATERABILITY
+    )
+  }
 
   // disable CORE FoT on lending contract
   const transferCheckerAddress = await CORE.transferCheckerAddress()

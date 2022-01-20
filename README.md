@@ -2,8 +2,12 @@
 
 Contracts for the CORE DAO and Lending
 
-cLending Proxy (0x54B276C8a484eBF2a244D933AF5FFaf595ea58c5)
-Treasury Proxy (0xe508a37101FCe81AB412626eE5F1A648244380de)
+
+| Name | Address 
+| - | - |
+| cLending Proxy | 0x54B276C8a484eBF2a244D933AF5FFaf595ea58c5 |
+| Treasury Proxy | 0xe508a37101FCe81AB412626eE5F1A648244380de |
+
 
 # Install
 

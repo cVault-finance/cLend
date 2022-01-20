@@ -6,6 +6,8 @@ import { constants } from "../constants"
 import { CoreDAOTreasury, CoreDAO } from "../types"
 import { IERC20__factory } from "../types/factories/IERC20__factory"
 
+const DEPLOYER = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"
+
 describe("CoreDAOTreasury", function () {
   let owner: Signer
   let alice: Signer
@@ -26,7 +28,6 @@ describe("CoreDAOTreasury", function () {
     await impersonate(constants.CORE_VAULT)
 
     const accounts = await ethers.getSigners()
-    owner = accounts[0]
     alice = accounts[1]
     bob = accounts[2]
 
@@ -41,6 +42,9 @@ describe("CoreDAOTreasury", function () {
     DAO_TOKENS_IN_LP1 = await treasury.DAO_TOKENS_IN_LP1()
     DAO_TOKENS_IN_LP2 = await treasury.DAO_TOKENS_IN_LP2()
     DAO_TOKENS_IN_LP3 = await treasury.DAO_TOKENS_IN_LP3()
+
+    await impersonate(DEPLOYER)
+    owner = await ethers.getSigner(DEPLOYER)
   })
 
   describe("check initial state", async () => {
@@ -63,7 +67,7 @@ describe("CoreDAOTreasury", function () {
     })
 
     it("should pay ether if token address is zero", async () => {
-      const treasuryBalance = utils.parseEther("10")
+      const treasuryBalance = utils.parseEther("1")
       await owner.sendTransaction({
         to: treasury.address,
         value: treasuryBalance,
@@ -80,10 +84,11 @@ describe("CoreDAOTreasury", function () {
     })
 
     it("should pay ERC20 token if token address is not zero", async () => {
+      const [deployer] = await ethers.getSigners()
       const MockTokenFactory = await ethers.getContractFactory("MockToken")
       const mockToken = await MockTokenFactory.deploy()
       const treasuryBalance = utils.parseEther("100")
-      await mockToken.connect(owner).transfer(treasury.address, treasuryBalance)
+      await mockToken.connect(deployer).transfer(treasury.address, treasuryBalance)
 
       const tx = await treasury.connect(owner).pay(mockToken.address, await alice.getAddress(), payAmount, "test")
       expect(tx)

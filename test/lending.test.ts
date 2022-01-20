@@ -5,6 +5,8 @@ import { getBigNumber, getRandomAddress, impersonate, latest, increase } from ".
 import { constants } from "../constants"
 import { BigNumber, Signer, utils, constants as EtherConstants } from "ethers"
 
+const DEPLOYER = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"
+
 describe("Lending", function () {
   let cLending: CLending
   let coreDAOTreasury
@@ -21,7 +23,6 @@ describe("Lending", function () {
 
   beforeEach(async function () {
     const accounts = await ethers.getSigners()
-    owner = accounts[0]
     alice = accounts[1]
     bob = accounts[2]
 
@@ -44,6 +45,9 @@ describe("Lending", function () {
 
     // Fund the lending contract with DAI
     await DAI.connect(coreMultiSigSigner).transfer(cLending.address, await DAI.balanceOf(coreMultiSigSigner.address))
+
+    await impersonate(DEPLOYER)
+    owner = await ethers.getSigner(DEPLOYER)
   })
 
   describe("#receive function", () => {

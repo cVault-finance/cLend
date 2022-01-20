@@ -286,7 +286,7 @@ describe("CoreGovernor", async () => {
     await Vault.connect(user2).deposit(3, await CoreDAO.balanceOf(user2.address))
 
     // Transfer treasury ownership to core governor
-    await CoreDAOTreasury.connect(deployer).transferOwnership(TimelockController.address)
+    await CoreDAOTreasury.connect(deployerSigner).transferOwnership(TimelockController.address)
     const abiCoder = ethers.utils.defaultAbiCoder
 
     const functionCall = [CoreDAOTreasury.interface.encodeFunctionData("pay", [CoreDAO.address, user3.address, getBigNumber("123456"), "benis"])]
