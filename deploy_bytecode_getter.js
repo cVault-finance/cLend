@@ -66,8 +66,7 @@ const deployCoreDAO = async (mnemonic = "", mainnet = false) => {
     }
 
     const tokenArgs = [
-        uniswapRouterAddress,
-        uniswapFactoryAddress
+        0
     ]
     
     deployTokenFromSigner(tokenUnpacked.abi, tokenUnpacked.bytecode, provider, tokenArgs)
