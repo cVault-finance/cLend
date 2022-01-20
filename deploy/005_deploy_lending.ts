@@ -68,6 +68,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     await transferChecker.connect(coreMultiSig).editNoFeeList(CLending.address, true)
   }
 
+  console.log("done")
   expect(await transferChecker.noFeeRecipent(CLending.address)).to.be.true
 }
 

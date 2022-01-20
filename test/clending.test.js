@@ -98,6 +98,10 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     await resetFork();
   });
 
+  after(async () => {
+    await resetFork();
+  });
+
   it("Should initialize the contracts correctly", async () => {
     await initializeLendingContracts(20, 110, 5500);
     // Check that coreDAO supply is correct
