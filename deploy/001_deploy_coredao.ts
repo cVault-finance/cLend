@@ -25,7 +25,13 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     args: [startingCOREDAOAmount],
     deterministicDeployment: false,
   })
-  const CoreDAO = await ethers.getContract<CoreDAO>("CoreDAO")
+
+  const CoreDAO = await ethers.getContractAt<CoreDAO>("CoreDAO", "0xf66Cd2f8755a21d3c8683a10269F795c0532Dd58")
+
+  await deployments.save("CoreDAO", {
+    abi: require("../abi/CoreDAO.json"),
+    address: CoreDAO.address,
+  })
 
   if (!network.live) {
     await impersonate(DEPLOYER)
