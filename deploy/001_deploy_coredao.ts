@@ -26,7 +26,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     address: CoreDAO.address,
   })
 
-  if (!network.live) {
+  if (!network.live || network.name == "hardhat") {
     await impersonate(DEPLOYER)
     const deployerSigner = await ethers.getSigner(DEPLOYER)
     await Treasury.connect(deployerSigner).initialize(CoreDAO.address)
