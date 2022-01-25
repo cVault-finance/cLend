@@ -19,13 +19,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     address: Treasury.address,
   })
 
-  await deploy("CoreDAO", {
-    from: deployer,
-    log: true,
-    args: [startingCOREDAOAmount],
-    deterministicDeployment: false,
-  })
-
   const CoreDAO = await ethers.getContractAt<CoreDAO>("CoreDAO", "0xf66Cd2f8755a21d3c8683a10269F795c0532Dd58")
 
   await deployments.save("CoreDAO", {

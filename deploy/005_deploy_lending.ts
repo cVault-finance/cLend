@@ -15,20 +15,13 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, getNamedAccounts } = hre
   const { deploy } = deployments
 
-  const { deployer } = await getNamedAccounts()
+  const CLending = await ethers.getContractAt<CLending>("CLending", "0x54B276C8a484eBF2a244D933AF5FFaf595ea58c5")
 
-  await deploy("CLending", {
-    from: deployer,
-    args: [],
-    log: true,
-    deterministicDeployment: false,
-    proxy: {
-      owner: constants.PROXY_ADMIN,
-      proxyContract: "TransparentUpgradeableProxy",
-    },
+  await deployments.save("CLending", {
+    abi: require("../abi/CLending.json"),
+    address: CLending.address,
   })
 
-  const CLending = await ethers.getContract<CLending>("CLending")
   const CoreDAO = await ethers.getContract("CoreDAO")
   const CORE = await ethers.getContractAt<CORE>("CORE", constants.CORE)
   const CoreDAOTreasury = await ethers.getContract<CoreDAOTreasury>("CoreDAOTreasury")
