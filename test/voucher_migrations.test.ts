@@ -25,18 +25,6 @@ describe("vouchers migration", async () => {
   let xRevertSigner
 
   before(async () => {
-    await network.provider.request({
-      method: "hardhat_reset",
-      params: [
-        {
-          forking: {
-            jsonRpcUrl: "https://eth-mainnet.alchemyapi.io/v2/TsLEJAhX87icgMO7ZVyPcpeEgpFEo96O",
-            blockNumber: 14072500,
-          },
-        },
-      ],
-    })
-
     await deployments.fixture()
     await impersonate(DEPLOYER)
     await impersonate(xRevert)
