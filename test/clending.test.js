@@ -15,12 +15,15 @@ const CORE_DAO_ARTIFACT = artifacts.require("CoreDAO");
 const DAO_TREASURY_ARTIFACT = artifacts.require("CoreDAOTreasury");
 const TRANSFER_CHECKER_ARTIFACT = artifacts.require("TransferChecker");
 const CORE_ARTIFACT = artifacts.require("CORE");
+const IERC20 = artifacts.require("IERC20");
 
 contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
   const CORE_RICH = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"; // deployer
   const DAI_RICH = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"; // deployer
+  const CORE_DEPLOYER = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"; // deployer
   const BURN_ADDRESS = "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF";
   const TREASURY_PROXY_ADDRESS = "0xe508a37101FCe81AB412626eE5F1A648244380de";
+  const CLENDING_PROXY_ADDRESS = "0x54B276C8a484eBF2a244D933AF5FFaf595ea58c5";
 
   let clend;
   let treasury;
@@ -33,9 +36,27 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     defaultThresholdPercent = 110,
     coreCollaterability = 5500
   ) {
-    clend = await CLENDING_ARTIFACT.new();
-    // treasury = await DAO_TREASURY_ARTIFACT.new();
-    treasury = await DAO_TREASURY_ARTIFACT.at(TREASURY_PROXY_ADDRESS);
+    const TEST_MAINNET = true;
+    if(!TEST_MAINNET) {
+      // Deploy it all for tests locally
+      clend = await CLENDING_ARTIFACT.new();
+      treasury = await DAO_TREASURY_ARTIFACT.new();
+
+      const transferChecker = await TRANSFER_CHECKER_ARTIFACT.at(
+        await (await CORE_ARTIFACT.at(core.address)).transferCheckerAddress()
+      );
+      await transferChecker.editNoFeeRecipentList(clend.address, true, {
+        from: CORE_RICH,
+      });
+      await transferChecker.editNoFeeList(clend.address, true, {
+        from: CORE_RICH,
+      });
+    } else {
+      // Use mainnet shit
+      clend = await CLENDING_ARTIFACT.at(CLENDING_PROXY_ADDRESS);
+      treasury = await DAO_TREASURY_ARTIFACT.at(TREASURY_PROXY_ADDRESS);
+    }
+  
     coreDAO = await CORE_DAO_ARTIFACT.new(tBN18(100000));
 
     await impersonate("0x5A16552f59ea34E44ec81E58b3817833E9fD5436");
@@ -50,15 +71,15 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
       defaultThresholdPercent,
       coreCollaterability,
       {
-        from: "0x5A16552f59ea34E44ec81E58b3817833E9fD5436",
+        from: CORE_DEPLOYER,
       }
     );
     await impersonate(CORE_RICH);
 
-    core = await CORE_DAO_ARTIFACT.at(
+    core = await IERC20.at(
       "0x62359Ed7505Efc61FF1D56fEF82158CcaffA23D7"
-    ); // not the actual artifact but has all the functions we need
-    dai = await CORE_DAO_ARTIFACT.at(
+    );
+    dai = await IERC20.at(
       "0x6b175474e89094c44da98b954eedeac495271d0f"
     );
 
@@ -81,17 +102,9 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
       from: CORE_RICH,
     });
 
-    const transferChecker = await TRANSFER_CHECKER_ARTIFACT.at(
-      await (await CORE_ARTIFACT.at(core.address)).transferCheckerAddress()
-    );
+    
 
-    // TODO important have to set lists for core txfee
-    await transferChecker.editNoFeeRecipentList(clend.address, true, {
-      from: CORE_RICH,
-    });
-    await transferChecker.editNoFeeList(clend.address, true, {
-      from: CORE_RICH,
-    });
+    
   }
 
   beforeEach(async () => {
@@ -427,10 +440,16 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     await initializeLendingContracts(20, 110, 5500);
     // This should have initiated CORE and COREDAO into the contract
 
+    const daiBalanceBeforeBorrow = await dai.balanceOf(CORE_RICH);
+
     // add 55k worth of core and borrow 55k
     await clend.addCollateralAndBorrow(core.address, tBN18(10), tBN18(55000), {
       from: CORE_RICH,
     });
+
+    const daiBalanceAfterBorrow = await dai.balanceOf(CORE_RICH);
+    
+    await assert(daiBalanceAfterBorrow.eq( daiBalanceBeforeBorrow.add(tBN18(55000)) ));
 
     const balanceClendBefore = await core.balanceOf(clend.address);
     const balanceUserBefore = await core.balanceOf(CORE_RICH);
