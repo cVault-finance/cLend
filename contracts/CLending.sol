@@ -298,7 +298,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         bool collateralAdded;
 
         // Loops over all provided collateral, checks if its there and if it is edit it
-        for (uint256 i = 0; i < userSummaryStorage.collateral.length; i++) {
+        uint256 length = userSummaryStorage.collateral.length;
+        for (uint256 i = 0; i < length; i++) {
             Collateral storage collateral = userSummaryStorage.collateral[i];
 
             if (collateral.collateralAddress == address(token)) {
@@ -345,7 +346,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     // function of great consequence
     // Loops over all user supplied collateral of user, and sends it to burn/beneficiary + pays 0.5% to caller if caller is not the user being liquidated.
     function _liquidate(address user) private {
-        for (uint256 i = 0; i < debtorSummary[user].collateral.length; i++) {
+        uint256 length = debtorSummary[user].collateral.length;
+        for (uint256 i = 0; i < length; i++) {
             uint256 amount = debtorSummary[user].collateral[i].amountCollateral;
             address currentCollateralAddress = debtorSummary[user].collateral[i].collateralAddress;
 
@@ -399,7 +401,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         require(totalCollateral > 0, "NOTHING_TO_CLAIM");
         require(totalDebt == 0, "STILL_IN_DEBT");
 
-        for (uint256 i = 0; i < debtorSummary[msg.sender].collateral.length; i++) {
+        uint256 length = debtorSummary[msg.sender].collateral.length;
+        for (uint256 i = 0; i < length; i++) {
             address collateralAddress = debtorSummary[msg.sender].collateral[i].collateralAddress;
             uint256 amount = debtorSummary[msg.sender].collateral[i].amountCollateral;
             _safeTransfer(
@@ -428,8 +431,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         uint256 timeSinceLastLoan = block.timestamp - userSummaryMemory.timeLastBorrow;
 
         // Formula :
-        // Accrued interest = 
-        // (DAI borrowed * percent interest per year * time since last loan ) / 365 days * 100 
+        // Accrued interest =
+        // (DAI borrowed * percent interest per year * time since last loan ) / 365 days * 100
         // + interest already pending ( from previous updates )
         return
             ((userSummaryMemory.amountDAIBorrowed * yearlyPercentInterest * timeSinceLastLoan) / 365_00 days) +   // 365days * 100 in seconds
