@@ -1,7 +1,7 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { DeployFunction } from "hardhat-deploy/types"
 import { ethers, network } from "hardhat"
-import { CLending, CoreDAOTreasury, CORE, TransferChecker } from "../types"
+import { CLending, CoreDAOTreasury, CORE, TransferChecker, MockProxyAdmin } from "../types"
 import { constants } from "../constants"
 import { impersonate } from "../test/utilities"
 import { expect } from "chai"
@@ -14,22 +14,36 @@ const DEPLOYER = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, getNamedAccounts } = hre
   const { deploy } = deployments
+  const { deployer } = await getNamedAccounts()
+
+  await impersonate(DEPLOYER)
+  const cvaultDeployer = await ethers.getSigner(DEPLOYER)
 
   const CLending = await ethers.getContractAt<CLending>("CLending", "0x54B276C8a484eBF2a244D933AF5FFaf595ea58c5")
-
   await deployments.save("CLending", {
     abi: require("../abi/CLending.json"),
     address: CLending.address,
   })
+
+  ///// Remove Once Upgraded
+  await deploy("CLendingImplementationFix", {
+    from: deployer,
+    args: [],
+    log: true,
+    contract: "CLending",
+    deterministicDeployment: false,
+  })
+  const CLendingImplementationFix = await ethers.getContract<CLending>("CLendingImplementationFix")
+  const TeamProxy = await ethers.getContractAt<MockProxyAdmin>("MockProxyAdmin", "0x9cb1eEcCd165090a4a091209E8c3a353954B1f0f")
+  await TeamProxy.connect(cvaultDeployer).upgrade(CLending.address, CLendingImplementationFix.address)
+  //////
 
   const CoreDAO = await ethers.getContract("CoreDAO")
   const CORE = await ethers.getContractAt<CORE>("CORE", constants.CORE)
   const CoreDAOTreasury = await ethers.getContract<CoreDAOTreasury>("CoreDAOTreasury")
 
   if (!network.live || network.name == "hardhat") {
-    await impersonate(DEPLOYER)
-    const deployerSigner = await ethers.getSigner(DEPLOYER)
-    await CLending.connect(deployerSigner).initialize(
+    await CLending.connect(cvaultDeployer).initialize(
       CoreDAOTreasury.address,
       CoreDAO.address,
       YEARLY_PERCENT_INTEREST,
