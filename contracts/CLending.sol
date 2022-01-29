@@ -20,6 +20,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
     mapping(address => DebtorSummary) public debtorSummary;
     mapping(address => uint256) public collaterabilityOfToken;
+    mapping(address => uint256) public userCollateralValue;
     mapping(address => address) public liquidationBeneficiaryOfToken;
     mapping(address => bool) public tokenRetired; // Since the whitelist is based on collaterability of token
     // We cannot retire it by setting it to 0 hence this mapping was added
@@ -39,8 +40,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         uint256 _loanDefaultThresholdPercent,
         uint256 _coreTokenCollaterability
     ) public initializer {
-
-        require(msg.sender == 0x5A16552f59ea34E44ec81E58b3817833E9fD5436,"BUM");
+        require(msg.sender == 0x5A16552f59ea34E44ec81E58b3817833E9fD5436, "BUM");
         __Ownable_init();
 
         coreDAOTreasury = _coreDAOTreasury;
@@ -419,7 +419,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         // (DAI borrowed * percent interest per year * time since last loan ) / 365 days * 100
         // + interest already pending ( from previous updates )
         return
-            ((userSummaryMemory.amountDAIBorrowed * yearlyPercentInterest * timeSinceLastLoan) / 365_00 days) +   // 365days * 100 in seconds
+            ((userSummaryMemory.amountDAIBorrowed * yearlyPercentInterest * timeSinceLastLoan) / 365_00 days) + // 365days * 100 in seconds
             userSummaryMemory.pendingInterests;
     }
 
