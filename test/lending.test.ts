@@ -343,6 +343,36 @@ describe("Lending", function () {
       expect(debtorSummary.timeLastBorrow).to.be.equal(currentTime)
     })
 
+    it("should allow to borrow more after the maximum has been borrow, if the collateral value is raised", async () => {
+      // Borrow Max
+      const borrowAmount = getBigNumber(500000, 18)
+      const borrowMax = collateral.mul(coreCollaterability)
+      const lendingDaiBalanceBefore = await DAI.balanceOf(cLending.address)
+      const tx = await cLending.connect(alice).borrow(borrowAmount)
+      const currentTime = await latest()
+
+      expect(await DAI.balanceOf(await alice.getAddress())).to.equal(borrowMax)
+      expect(await DAI.balanceOf(cLending.address)).to.be.equal(lendingDaiBalanceBefore.sub(borrowMax))
+      expect(tx)
+        .to.emit(cLending, "LoanTaken")
+        .withArgs(borrowMax, currentTime, await alice.getAddress())
+
+      const debtorSummary = await cLending.debtorSummary(await alice.getAddress())
+      expect(debtorSummary.amountDAIBorrowed).to.be.equal(borrowMax)
+      expect(debtorSummary.timeLastBorrow).to.be.equal(currentTime)
+
+      // Shouldn't borrow more
+      await expect(cLending.connect(alice).borrow(borrowAmount)).to.be.revertedWith("OVER_DEBTED")
+      const newCollateralValue = coreCollaterability.mul(2)
+
+      // Should now allow to borrow more since the collateral value raised
+      await cLending.connect(owner).editTokenCollaterability(CORE.address, newCollateralValue)
+      expect(await cLending.collaterabilityOfToken(CORE.address)).to.be.eq(newCollateralValue)
+      expect(await cLending.userCollateralValue(await alice.getAddress())).to.be.eq(collateral.mul(newCollateralValue))
+      await cLending.connect(alice).borrow(borrowAmount)
+      expect(await DAI.balanceOf(await alice.getAddress())).to.be.closeTo(borrowMax.mul(2), parseInt(getBigNumber(3, 15).toString())) // around borrowMax * 2
+    })
+
     it("should increase DAI borrowed with interest", async () => {
       const borrowAmount1 = getBigNumber(3000, 18)
       await cLending.connect(alice).borrow(borrowAmount1)
