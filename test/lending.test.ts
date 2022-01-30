@@ -517,7 +517,7 @@ describe("Lending", function () {
       expect(debtorSummary.timeLastBorrow).to.be.equal(0)
     })
 
-    it.only("should consider changes to a modified collateral value", async () => {
+    it("should consider changes to a modified collateral value", async () => {
       let snapshot = await ethers.provider.send("evm_snapshot", [])
       let ONE_DAY = getBigNumber(60 * 60 * 24, 0)
       const aliceAddress = await alice.getAddress()
