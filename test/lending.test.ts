@@ -400,7 +400,7 @@ describe("Lending", function () {
 
     it("revert if token is retired", async () => {
       await cLending.connect(owner).editTokenCollaterability(CORE.address, 0)
-      await expect(cLending.connect(alice).repayLoan(CORE.address, repayAmount)).to.revertedWith("TOKEN_RETIRED")
+      await expect(cLending.connect(alice).repayLoan(CORE.address, repayAmount)).to.revertedWith("NOT_DEBT")
     })
 
     it("revert if repay amount is less than interest", async () => {
