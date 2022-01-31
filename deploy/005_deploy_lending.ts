@@ -19,13 +19,29 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   await impersonate(DEPLOYER)
   const cvaultDeployer = await ethers.getSigner(DEPLOYER)
 
+  await deploy("CLending", {
+    from: deployer,
+    args: [],
+    log: true,
+    deterministicDeployment: false,
+    proxy: {
+      owner: constants.PROXY_ADMIN,
+      proxyContract: "TransparentUpgradeableProxy",
+    },
+  })
+
+  const CLending = await ethers.getContract<CLending>("CLending")
+
+  /*
   const CLending = await ethers.getContractAt<CLending>("CLending", "0x54B276C8a484eBF2a244D933AF5FFaf595ea58c5")
   await deployments.save("CLending", {
     abi: require("../abi/CLending.json"),
     address: CLending.address,
   })
+  */
 
-  ///// Remove Once Upgraded
+  /*
+  ///// Example of upgrading
   await deploy("CLendingImplementationFix", {
     from: deployer,
     args: [],
@@ -37,6 +53,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const TeamProxy = await ethers.getContractAt<MockProxyAdmin>("MockProxyAdmin", "0x9cb1eEcCd165090a4a091209E8c3a353954B1f0f")
   await TeamProxy.connect(cvaultDeployer).upgrade(CLending.address, CLendingImplementationFix.address)
   //////
+  */
 
   const CoreDAO = await ethers.getContract("CoreDAO")
   const CORE = await ethers.getContractAt<CORE>("CORE", constants.CORE)
