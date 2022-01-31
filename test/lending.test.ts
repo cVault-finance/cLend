@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { ethers, deployments } from "hardhat"
+import { ethers, deployments, network } from "hardhat"
 import { CLending, IERC20 } from "../types"
 import { getBigNumber, getRandomAddress, impersonate, latest, increase } from "./utilities"
 import { constants } from "../constants"
@@ -343,6 +343,36 @@ describe("Lending", function () {
       expect(debtorSummary.timeLastBorrow).to.be.equal(currentTime)
     })
 
+    it("should allow to borrow more after the maximum has been borrow, if the collateral value is raised", async () => {
+      // Borrow Max
+      const borrowAmount = getBigNumber(500000, 18)
+      const borrowMax = collateral.mul(coreCollaterability)
+      const lendingDaiBalanceBefore = await DAI.balanceOf(cLending.address)
+      const tx = await cLending.connect(alice).borrow(borrowAmount)
+      const currentTime = await latest()
+
+      expect(await DAI.balanceOf(await alice.getAddress())).to.equal(borrowMax)
+      expect(await DAI.balanceOf(cLending.address)).to.be.equal(lendingDaiBalanceBefore.sub(borrowMax))
+      expect(tx)
+        .to.emit(cLending, "LoanTaken")
+        .withArgs(borrowMax, currentTime, await alice.getAddress())
+
+      const debtorSummary = await cLending.debtorSummary(await alice.getAddress())
+      expect(debtorSummary.amountDAIBorrowed).to.be.equal(borrowMax)
+      expect(debtorSummary.timeLastBorrow).to.be.equal(currentTime)
+
+      // Shouldn't borrow more
+      await expect(cLending.connect(alice).borrow(borrowAmount)).to.be.revertedWith("OVER_DEBTED")
+      const newCollateralValue = coreCollaterability.mul(2)
+
+      // Should now allow to borrow more since the collateral value raised
+      await cLending.connect(owner).editTokenCollaterability(CORE.address, newCollateralValue)
+      expect(await cLending.collaterabilityOfToken(CORE.address)).to.be.eq(newCollateralValue)
+      expect(await cLending.userCollateralValue(await alice.getAddress())).to.be.eq(collateral.mul(newCollateralValue))
+      await cLending.connect(alice).borrow(borrowAmount)
+      expect(await DAI.balanceOf(await alice.getAddress())).to.be.closeTo(borrowMax.mul(2), parseInt(getBigNumber(3, 15).toString())) // around borrowMax * 2
+    })
+
     it("should increase DAI borrowed with interest", async () => {
       const borrowAmount1 = getBigNumber(3000, 18)
       await cLending.connect(alice).borrow(borrowAmount1)
@@ -400,7 +430,7 @@ describe("Lending", function () {
 
     it("revert if token is retired", async () => {
       await cLending.connect(owner).editTokenCollaterability(CORE.address, 0)
-      await expect(cLending.connect(alice).repayLoan(CORE.address, repayAmount)).to.revertedWith("TOKEN_RETIRED")
+      await expect(cLending.connect(alice).repayLoan(CORE.address, repayAmount)).to.revertedWith("NOT_DEBT")
     })
 
     it("revert if repay amount is less than interest", async () => {
@@ -505,13 +535,64 @@ describe("Lending", function () {
       const burnBalanceBefore = await CORE.balanceOf(constants.DEAD_BEEF)
       const tx = await cLending.connect(alice).liquidateDelinquent(await alice.getAddress())
       const currentTime = await latest()
-      expect(tx)
+      await expect(tx)
         .to.emit(cLending, "Liquidation")
         .withArgs(await alice.getAddress(), collateral.mul(coreCollaterability), currentTime, await alice.getAddress())
 
       // TODO check later
       // expect(await CORE.balanceOf(constants.DEAD_BEEF)).to.equal(burnBalanceBefore.add(collateral))
 
+      const debtorSummary = await cLending.debtorSummary(await alice.getAddress())
+      expect(debtorSummary.amountDAIBorrowed).to.be.equal(0)
+      expect(debtorSummary.timeLastBorrow).to.be.equal(0)
+    })
+
+    it("should consider changes to a modified collateral value", async () => {
+      let snapshot = await ethers.provider.send("evm_snapshot", [])
+      let ONE_DAY = getBigNumber(60 * 60 * 24, 0)
+      const aliceAddress = await alice.getAddress()
+
+      const printStats = async (account) => {
+        const totalDebt = await cLending.userTotalDebt(account)
+        const totalCollateral = await cLending.userCollateralValue(account)
+        const liquidationPoint = totalCollateral.mul(loanDefaultThresholdPercent).div(100)
+
+        console.table({
+          totalDebt: parseFloat(ethers.utils.formatEther(totalDebt)).toLocaleString(),
+          liquidationPoint: parseFloat(ethers.utils.formatEther(liquidationPoint)).toLocaleString(),
+          isLiquidable: totalDebt.gte(liquidationPoint),
+        })
+      }
+      // Normal case where the user is liquidated after one year without paying interests
+      {
+        await increase(ONE_YEAR)
+        const tx = await cLending.connect(alice).liquidateDelinquent(aliceAddress)
+        const currentTime = await latest()
+        await expect(tx)
+          .to.emit(cLending, "Liquidation")
+          .withArgs(await alice.getAddress(), collateral.mul(coreCollaterability), currentTime, aliceAddress)
+        const debtorSummary = await cLending.debtorSummary(aliceAddress)
+        expect(debtorSummary.amountDAIBorrowed).to.be.equal(0)
+        expect(debtorSummary.timeLastBorrow).to.be.equal(0)
+      }
+
+      await network.provider.send("evm_revert", [snapshot])
+
+      await increase(ONE_YEAR)
+      // Raise CORE collateral value so that in one year it's not liquidable yet
+      await cLending.connect(owner).editTokenCollaterability(CORE.address, 5500 + 525)
+      await printStats(aliceAddress)
+      await expect(cLending.connect(alice).liquidateDelinquent(await alice.getAddress())).to.not.emit(cLending, "Liquidation")
+
+      // Not yet
+      await increase(ONE_DAY.mul(7))
+      await printStats(aliceAddress)
+      await expect(cLending.connect(alice).liquidateDelinquent(await alice.getAddress())).to.not.emit(cLending, "Liquidation")
+
+      await increase(ONE_DAY.mul(3))
+      await printStats(aliceAddress)
+      const tx = await cLending.connect(alice).liquidateDelinquent(await alice.getAddress())
+      await expect(tx).to.emit(cLending, "Liquidation")
       const debtorSummary = await cLending.debtorSummary(await alice.getAddress())
       expect(debtorSummary.amountDAIBorrowed).to.be.equal(0)
       expect(debtorSummary.timeLastBorrow).to.be.equal(0)
@@ -529,6 +610,19 @@ describe("Lending", function () {
     it("revert if debt is not zero", async () => {
       await cLending.connect(alice).borrow("1000")
       await expect(cLending.connect(alice).reclaimAllCollateral()).to.revertedWith("STILL_IN_DEBT")
+    })
+
+    it("should allow to reclaim if no debt and token is retired", async () => {
+      await cLending.connect(owner).editTokenCollaterability(CORE.address, 0)
+      await expect(cLending.liquidateDelinquent(await alice.getAddress())).to.not.emit(cLending, "Liquidation");
+      await expect(cLending.connect(alice).reclaimAllCollateral()).to.be.revertedWith("NOTHING_TO_CLAIM");
+    })
+
+    it("liquidate if token is retired", async () => {
+      await cLending.connect(alice).borrow("1000")
+
+      await cLending.connect(owner).editTokenCollaterability(CORE.address, 0);
+      await expect(cLending.connect(alice).reclaimAllCollateral()).to.be.revertedWith("NOTHING_TO_CLAIM")
     })
 
     it("revert if no collateral", async () => {
