@@ -195,35 +195,30 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         // Clear previous borrows & collateral for this user if they are delinquent
         liquidateDelinquent(user);
 
-        require(token != DAI, "DAI_IS_ONLY_FOR_REPAYMENT");
-
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)]; // essentially a whitelist
+        require(token != DAI, "DAI_IS_ONLY_FOR_REPAYMENT");
         require(tokenRetired[address(token)] == false, "TOKEN_RETIRED");
-
         require(tokenCollateralAbility != 0, "NOT_ACCEPTED");
+        require(amount > 0, "!AMOUNT");
+        require(user != address(0), "NO_ADDRESS");
 
+        // Transfer the token from owner, important this is first because of interest repayment which can send
         token.safeTransferFrom(user, amount);
 
+        // Handling interest.
+        // Interest is paid by garnishing deposited tokens
         uint256 accruedInterests = accruedInterest(user);
-        // We pay interest already accrued with the same mechanism as repay fn
         uint256 accruedInterestInToken = quantityOfTokenForValueInDAI(accruedInterests, tokenCollateralAbility); // eg. 6000 accrued interest and 1 CORE == 1
-
-        // We add collateral into the user struct
-        uint256 collateralIndex = _upsertCollateralInUserSummary(userSummaryStorage, token, amount);
-
-        if (accruedInterestInToken > 0) {
-            require(
-                userSummaryStorage.collateral[collateralIndex].amountCollateral >= accruedInterestInToken,
-                "INSUFFICIENT_AMOUNT"
-            );
-            userSummaryStorage.collateral[collateralIndex].amountCollateral -= accruedInterestInToken;
-
+        if(accruedInterestInToken > 0) {
+            require(amount > accruedInterestInToken, "INSUFFICIENT_AMOUNT_TO_PAY_INTEREST");
+            amount -= accruedInterestInToken; // garnish interest
             _safeTransfer(address(token), coreDAOTreasury, accruedInterestInToken);
             _wipeInterestOwed(userSummaryStorage); // wipes accrued interests
-
             emit InterestPaid(address(token), accruedInterests, block.timestamp, user);
         }
 
+        // We add collateral into the user struct
+        _upsertCollateralInUserSummary(userSummaryStorage, token, amount);
         emit CollateralAdded(address(token), amount, block.timestamp, msg.sender);
     }
 
