@@ -382,13 +382,16 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
         // Can only reclaim if there is collateral and 0 debt.
         // If user was liquidated by above call, then this will revert
-        require(totalCollateral > 0, "NOTHING_TO_CLAIM");
         require(totalDebt == 0, "STILL_IN_DEBT");
 
         uint256 length = debtorSummary[msg.sender].collateral.length;
+        require(length > 0, "NOTHING_TO_CLAIM");
+
         for (uint256 i = 0; i < length; i++) {
             address collateralAddress = debtorSummary[msg.sender].collateral[i].collateralAddress;
             uint256 amount = debtorSummary[msg.sender].collateral[i].amountCollateral;
+            require(amount > 0, "SAFETY_CHECK_FAIL");
+
             _safeTransfer(
                 collateralAddress, //token
                 msg.sender, // to
