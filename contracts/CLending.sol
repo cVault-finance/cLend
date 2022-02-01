@@ -29,6 +29,15 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     uint256 public loanDefaultThresholdPercent;
     IERC20 public coreDAO; // initialized hence not immutable but should be
 
+    bool private entered;
+
+    modifier nonEntered {
+        require(!entered, "NO_REENTRY");
+        entered = true;
+        _;
+        entered = false;
+    }
+
     /// @dev upfront storage allocation for further upgrades
     uint256[52] private _____gap;
 
@@ -140,9 +149,9 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     // Repays the loan supplying collateral and not adding it
-    function repayLoan(IERC20 token, uint256 amount) public {
+    function repayLoan(IERC20 token, uint256 amount) public nonEntered {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
-        (uint256 totalDebt, ) = liquidateDelinquent(msg.sender);
+        (uint256 totalDebt, ) = _liquidateDeliquent(msg.sender);
         require(totalDebt > 0, "NOT_DEBT");
 
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
@@ -191,9 +200,9 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         address user,
         IERC20 token,
         uint256 amount
-    ) private {
+    ) private nonEntered {
         // Clear previous borrows & collateral for this user if they are delinquent
-        liquidateDelinquent(user);
+        _liquidateDeliquent(user);
 
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)]; // essentially a whitelist
         require(token != DAI, "DAI_IS_ONLY_FOR_REPAYMENT");
@@ -248,7 +257,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         DebtorSummary storage userSummaryStorage,
         address user,
         uint256 amountBorrow
-    ) private {
+    ) private nonEntered {
         // We take users accrued interest and the amount borrowed
         // We repay the accured interest from the loan amount, by adding it on top of the loan amount
         uint256 totalCollateral = userCollateralValue(user); // Value of collateral in DAI
@@ -310,7 +319,11 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     // Liquidates people in default
-    function liquidateDelinquent(address user) public returns (uint256 totalDebt, uint256 totalCollateral) {
+    function liquidateDelinquent(address user) public nonEntered returns (uint256 totalDebt, uint256 totalCollateral)  {
+        return _liquidateDeliquent(user);
+    }
+
+    function _liquidateDeliquent(address user) private returns (uint256 totalDebt, uint256 totalCollateral) {
         totalDebt = userTotalDebt(user); // This is with interest
         totalCollateral = userCollateralValue(user);
 
@@ -325,7 +338,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     // Only called in liquidatedliquent
     // function of great consequence
     // Loops over all user supplied collateral of user, and sends it to burn/beneficiary + pays 0.5% to caller if caller is not the user being liquidated.
-    function _liquidate(address user) private {
+    function _liquidate(address user) private  {
         uint256 length = debtorSummary[user].collateral.length;
         for (uint256 i = 0; i < length; i++) {
             uint256 amount = debtorSummary[user].collateral[i].amountCollateral;
@@ -373,7 +386,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     function reclaimAllCollateral() external {
-        (uint256 totalDebt,) = liquidateDelinquent(msg.sender);
+        (uint256 totalDebt,) = _liquidateDeliquent(msg.sender);
 
         // Can only reclaim if there is collateral and 0 debt.
         // If user was liquidated by above call, then this will revert
