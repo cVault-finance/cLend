@@ -615,7 +615,11 @@ describe("Lending", function () {
     it("should allow to reclaim if no debt and token is retired", async () => {
       await cLending.connect(owner).editTokenCollaterability(CORE.address, 0)
       await expect(cLending.liquidateDelinquent(await alice.getAddress())).to.not.emit(cLending, "Liquidation");
-      await expect(cLending.connect(alice).reclaimAllCollateral()).to.be.revertedWith("NOTHING_TO_CLAIM");
+
+      const balanceBefore = await CORE.balanceOf(await alice.getAddress());
+      await cLending.connect(alice).reclaimAllCollateral();
+      expect((await CORE.balanceOf(await alice.getAddress())).sub(balanceBefore)).to.be.eq(collateral)
+
     })
 
     it("liquidate if token is retired", async () => {

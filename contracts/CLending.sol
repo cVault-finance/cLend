@@ -378,7 +378,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     function reclaimAllCollateral() external {
-        (uint256 totalDebt, uint256 totalCollateral) = liquidateDelinquent(msg.sender);
+        (uint256 totalDebt,) = liquidateDelinquent(msg.sender);
 
         // Can only reclaim if there is collateral and 0 debt.
         // If user was liquidated by above call, then this will revert
