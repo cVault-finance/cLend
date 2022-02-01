@@ -150,33 +150,35 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
     // Repays the loan supplying collateral and not adding it
     function repayLoan(IERC20 token, uint256 amount) public nonEntered {
-        DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         (uint256 totalDebt, ) = _liquidateDeliquent(msg.sender);
-        require(totalDebt > 0, "NOT_DEBT");
-
+        DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
         uint256 offeredCollateralValue = amount * tokenCollateralAbility;
-        require(offeredCollateralValue > 0, "NOT_ENOUGH_COLLATERAL_OFFERED"); // covers both cases its a not supported token and 0 case
-        require(tokenRetired[address(token)] == false, "TOKEN_RETIRED");
-
         uint256 _accruedInterest = accruedInterest(msg.sender);
+
+        require(offeredCollateralValue > 0, "NOT_ENOUGH_COLLATERAL_OFFERED"); // covers both cases its a not supported token and 0 case
+        require(totalDebt > 0, "NOT_DEBT");
+        require(tokenRetired[address(token)] == false, "TOKEN_RETIRED");
         require(offeredCollateralValue >= _accruedInterest, "INSUFFICIENT_AMOUNT"); // Has to be done because we have to update debt time
+        require(amount > 0, "REPAYMENT_NOT_SUCESSFUL");
+
         // Note that acured interest is never bigger than 10% of supplied collateral because of liquidateDelinquent call above
         if (offeredCollateralValue > totalDebt) {
             amount = quantityOfTokenForValueInDAI(totalDebt, tokenCollateralAbility);
+            require(amount > 0, "REPAYMENT_NOT_SUCESSFUL");
             userSummaryStorage.amountDAIBorrowed = 0;
             // Updating debt time is not nessesary since accrued interest on 0 will always be 0
         } else {
             userSummaryStorage.amountDAIBorrowed -= offeredCollateralValue - _accruedInterest;
             // Send the repayment amt
         }
-        _wipeInterestOwed(userSummaryStorage);
-        require(amount > 0, "REPAYMENT_NOT_SUCESSFUL");
-
+        
+        // Nessesary to do it after the change of amount
         token.safeTransferFrom(msg.sender, amount); // amount is changed if user supplies more than is neesesry to wipe their debt and interest
         emit Repayment(address(token), amount, block.timestamp, msg.sender);
-        emit InterestPaid(address(token), _accruedInterest, block.timestamp, msg.sender);
 
+        // Interst handling
+        // Interest is always repaid here because of the offeredCollateralValue >= _accruedInterest check
         uint256 amountTokensForInterestRepayment = quantityOfTokenForValueInDAI(
             _accruedInterest,
             tokenCollateralAbility
@@ -184,6 +186,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         if (amountTokensForInterestRepayment > 0) {
             _safeTransfer(address(token), coreDAOTreasury, amountTokensForInterestRepayment);
         }
+        _wipeInterestOwed(userSummaryStorage);
+        emit InterestPaid(address(token), _accruedInterest, block.timestamp, msg.sender);
     }
 
     function quantityOfTokenForValueInDAI(uint256 quantityOfDAI, uint256 tokenCollateralAbility)
