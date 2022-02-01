@@ -264,10 +264,10 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         uint256 userAccruedInterest = accruedInterest(user); // Interest in DAI
         uint256 totalAmountBorrowed = userSummaryStorage.amountDAIBorrowed;
         uint256 totalDebt = userAccruedInterest + totalAmountBorrowed;
+        require(totalDebt <= totalCollateral, "OVER_DEBTED");
         uint256 userRemainingCollateral = totalCollateral - totalDebt; // User's collateral before making this loan
 
         require(amountBorrow > 0, "NO_BORROW"); // This is intentional after adding accured interest
-        require(totalDebt <= totalCollateral, "OVER_DEBTED");
         require(user != address(0), "NO_ADDRESS");
         require(userRemainingCollateral > 0, "NOTHING_TO_BORROW");
 
