@@ -264,11 +264,13 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         uint256 userAccruedInterest = accruedInterest(user); // Interest in DAI
         uint256 totalAmountBorrowed = userSummaryStorage.amountDAIBorrowed;
         uint256 totalDebt = userAccruedInterest + totalAmountBorrowed;
+        uint256 userRemainingCollateral = totalCollateral - totalDebt; // User's collateral before making this loan
 
         require(amountBorrow > 0, "NO_BORROW"); // This is intentional after adding accured interest
         require(totalDebt <= totalCollateral, "OVER_DEBTED");
+        require(user != address(0), "NO_ADDRESS");
+        require(userRemainingCollateral > 0, "NOTHING_TO_BORROW");
 
-        uint256 userRemainingCollateral = totalCollateral - totalDebt; // User's collateral before making this loan
         // If the amount borrow is higher than remaining collateral, cap it
         if (amountBorrow > userRemainingCollateral) {
             amountBorrow = userRemainingCollateral;
@@ -277,7 +279,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         userSummaryStorage.amountDAIBorrowed += amountBorrow;
         _wipeInterestOwed(userSummaryStorage); // because we added it to their borrowed amount
 
-        // set interests from previous loan separately
+        // carry forward the previous interest
         userSummaryStorage.pendingInterests = userAccruedInterest;
 
         DAI.transfer(user, amountBorrow); // DAI transfer function doesnt need safe transfer
