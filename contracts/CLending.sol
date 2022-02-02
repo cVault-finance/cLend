@@ -223,7 +223,9 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         // Handling interest.
         // Interest is paid by garnishing deposited tokens
         uint256 accruedInterests = accruedInterest(user);
-        uint256 accruedInterestInToken = quantityOfTokenForValueInDAI(accruedInterests, tokenCollateralAbility); // eg. 6000 accrued interest and 1 CORE == 1
+
+        // eg. 6000 accrued interest and 1 CORE == 1
+        uint256 accruedInterestInToken = quantityOfTokenForValueInDAI(accruedInterests, tokenCollateralAbility);
         if(accruedInterestInToken > 0) {
             require(amount > accruedInterestInToken, "INSUFFICIENT_AMOUNT_TO_PAY_INTEREST");
             amount -= accruedInterestInToken; // garnish interest
@@ -346,7 +348,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
     // Only called in liquidatedliquent
     // function of great consequence
-    // Loops over all user supplied collateral of user, and sends it to burn/beneficiary + pays 0.5% to caller if caller is not the user being liquidated.
+    // Loops over all user supplied collateral of user, and sends it
+    // to burn/beneficiary + pays 0.5% to caller if caller is not the user being liquidated.
     function _liquidate(address user) private  {
         // solcurity: C2 - debtorSummary[user]
         uint256 length = debtorSummary[user].collateral.length;
