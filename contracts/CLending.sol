@@ -344,6 +344,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     // function of great consequence
     // Loops over all user supplied collateral of user, and sends it to burn/beneficiary + pays 0.5% to caller if caller is not the user being liquidated.
     function _liquidate(address user) private  {
+        // solcurity: C2 - debtorSummary[user]
         uint256 length = debtorSummary[user].collateral.length;
         for (uint256 i = 0; i < length; i++) {
             uint256 amount = debtorSummary[user].collateral[i].amountCollateral;
@@ -397,6 +398,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         // If user was liquidated by above call, then this will revert
         require(totalDebt == 0, "STILL_IN_DEBT");
 
+        // solcurity: C2 - debtorSummary[msg.sender]
         uint256 length = debtorSummary[msg.sender].collateral.length;
         require(length > 0, "NOTHING_TO_CLAIM");
 
