@@ -47,7 +47,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         uint256 _yearlyPercentInterest,
         uint256 _loanDefaultThresholdPercent,
         uint256 _coreTokenCollaterability
-    ) public initializer {
+    ) external initializer {
         require(msg.sender == 0x5A16552f59ea34E44ec81E58b3817833E9fD5436, "BUM");
         __Ownable_init();
 
@@ -131,7 +131,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         collaterabilityOfToken[token] = collaterabilityInDAI;
     }
 
-    function editTokenLiquidationBeneficiary(address token, address newBeneficiary) public onlyOwner {
+    function editTokenLiquidationBeneficiary(address token, address newBeneficiary) external onlyOwner {
         // Since beneficiary defaults to deadbeef it cannot be 0 if its been added before
         require(liquidationBeneficiaryOfToken[token] != address(0), "NOT_ADDED");
         require(token != address(CORE_TOKEN) && token != address(coreDAO), "CANNOT_MODIFY"); // Those should stay burned or floor doesnt hold
@@ -149,7 +149,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     // Repays the loan supplying collateral and not adding it
-    function repayLoan(IERC20 token, uint256 amount) public nonEntered {
+    function repayLoan(IERC20 token, uint256 amount) external nonEntered {
         (uint256 totalDebt, ) = _liquidateDeliquent(msg.sender);
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
@@ -324,7 +324,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     // Liquidates people in default
-    function liquidateDelinquent(address user) public nonEntered returns (uint256 totalDebt, uint256 totalCollateral)  {
+    function liquidateDelinquent(address user) external nonEntered returns (uint256 totalDebt, uint256 totalCollateral)  {
         return _liquidateDeliquent(user);
     }
 
