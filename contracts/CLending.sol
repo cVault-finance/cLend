@@ -254,7 +254,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         _borrow(userSummaryStorage, msg.sender, amountBorrow);
     }
 
-    function borrow(uint256 amount) public {
+    function borrow(uint256 amount) external {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         _borrow(userSummaryStorage, msg.sender, amount);
     }
