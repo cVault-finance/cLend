@@ -149,6 +149,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     // Repays the loan supplying collateral and not adding it
+    // solcurity: C48
     function repayLoan(IERC20 token, uint256 amount) external nonEntered {
         (uint256 totalDebt, ) = _liquidateDeliquent(msg.sender);
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
@@ -199,6 +200,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         return quantityOfDAI / tokenCollateralAbility;
     }
 
+    // solcurity: C48
     function _supplyCollateral(
         DebtorSummary storage userSummaryStorage,
         address user,
@@ -257,6 +259,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
     // Repays all users accumulated interest with margin
     // Then checks if borrow can be preformed, adds it to total borrowed as well as transfers the dai to user
+    // solcurity: C48
     function _borrow(
         DebtorSummary storage userSummaryStorage,
         address user,
@@ -324,6 +327,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     // Liquidates people in default
+    // solcurity: C48
     function liquidateDelinquent(address user) external nonEntered returns (uint256 totalDebt, uint256 totalCollateral)  {
         return _liquidateDeliquent(user);
     }
@@ -442,6 +446,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
     function _wipeInterestOwed(DebtorSummary storage userSummaryStorage) private {
         userSummaryStorage.timeLastBorrow = block.timestamp;
+
+        // solcurity: C38
         userSummaryStorage.pendingInterests = 0; // clear user pending interests
     }
 

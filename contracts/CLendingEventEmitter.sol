@@ -2,6 +2,8 @@
 
 pragma solidity =0.8.6;
 
+// solcurity: E1, index what could be useful for offchain reading. Do not index dynamic types like strings or bytes.
+// solcurity: E5
 contract cLendingEventEmitter {
     event LoanTermsChanged(
         uint256 previousYearlyInterst,
