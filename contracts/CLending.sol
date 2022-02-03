@@ -185,7 +185,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
             userSummaryStorage.amountDAIBorrowed = 0;
             // Updating debt time is not nessesary since accrued interest on 0 will always be 0
         } else {
-            userSummaryStorage.amountDAIBorrowed -= offeredCollateralValue - _accruedInterest;
+            userSummaryStorage.amountDAIBorrowed -= (offeredCollateralValue - _accruedInterest);
             // Send the repayment amt
         }
         
