@@ -16,7 +16,7 @@ const DAO_TREASURY_ARTIFACT = artifacts.require("CoreDAOTreasury");
 const TRANSFER_CHECKER_ARTIFACT = artifacts.require("TransferChecker");
 const CORE_ARTIFACT = artifacts.require("CORE");
 const IERC20 = artifacts.require("IERC20");
-const ProxyAdmin = artifacts.require("ProxyAdmin");
+const ProxyAdmin = artifacts.require("MockProxyAdmin");
 
 contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
   const CORE_RICH = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"; // deployer

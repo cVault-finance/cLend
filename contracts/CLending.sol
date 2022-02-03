@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./CLendingLibrary.sol";
 import "./types/CLendingTypes.sol";
 import "./CLendingEventEmitter.sol";
+import "hardhat/console.sol";
 
 /**
  * @title Lending contract for CORE and CoreDAO
