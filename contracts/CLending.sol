@@ -21,8 +21,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     mapping(address => DebtorSummary) public debtorSummary;
     mapping(address => uint256) public collaterabilityOfToken;
     mapping(address => address) public liquidationBeneficiaryOfToken;
-    mapping(address => bool) public tokenRetired; // Since the whitelist is based on collaterability of token
-    // We cannot retire it by setting it to 0 hence this mapping was added
+    mapping(address => bool) public isAngel;
+
 
     address public coreDAOTreasury;
     uint256 public yearlyPercentInterest;
@@ -30,6 +30,10 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     IERC20 public coreDAO; // initialized hence not immutable but should be
 
     bool private entered;
+    bool private holyIntervention;
+
+    /// @dev upfront storage allocation for further upgrades
+    uint256[52] private _____gap;
 
     modifier nonEntered {
         require(!entered, "NO_REENTRY");
@@ -38,8 +42,23 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         entered = false;
     }
 
-    /// @dev upfront storage allocation for further upgrades
-    uint256[52] private _____gap;
+    modifier notHaram {
+        require(!holyIntervention,"GOD_SAYS_NO");
+        _;
+    }
+
+    function editAngels(address _angel, bool _isAngel) external onlyOwner {
+        isAngel[_angel] = _isAngel;
+    }
+
+    function intervenienteHomine() external {
+        require(isAngel[msg.sender],"HERETICAL");
+        holyIntervention = true;
+    }
+
+    function godIsDead() external onlyOwner {
+        holyIntervention = false;
+    }
 
     function initialize(
         address _coreDAOTreasury,
@@ -69,7 +88,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     // It should be noted that this will change everything backwards in time meaning some people might be liquidated right away
-    function changeLoanTerms(uint256 _yearlyPercentInterest, uint256 _loanDefaultThresholdPercent) public onlyOwner {
+    function changeLoanTerms(uint256 _yearlyPercentInterest, uint256 _loanDefaultThresholdPercent) public notHaram onlyOwner {
         require(_loanDefaultThresholdPercent > 100, "WOULD_LIQUIDATE");
 
         emit LoanTermsChanged(
@@ -85,7 +104,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         loanDefaultThresholdPercent = _loanDefaultThresholdPercent;
     }
 
-    function editTokenCollaterability(address token, uint256 newCollaterability) external onlyOwner {
+    function editTokenCollaterability(address token, uint256 newCollaterability) external notHaram onlyOwner {
         emit TokenCollaterabilityChanged(
             token,
             collaterabilityOfToken[token],
@@ -94,12 +113,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
             msg.sender
         );
         require(liquidationBeneficiaryOfToken[token] != address(0), "NOT_ADDED");
-        if (newCollaterability == 0) {
-            tokenRetired[token] = true;
-        } else {
-            collaterabilityOfToken[token] = newCollaterability;
-            tokenRetired[token] = false;
-        }
+        collaterabilityOfToken[token] = newCollaterability;
     }
 
     // warning this does not support different amount than 18 decimals
@@ -108,7 +122,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         address liquidationBeneficiary,
         uint256 collaterabilityInDAI,
         uint256 decimals
-    ) public onlyOwner {
+    ) public notHaram onlyOwner {
         /// 1e18 CORE = 5,500 e18 DAI
         /// 1units CORE = 5,500units DAI
         // $1DAI = 1e18 units
@@ -131,7 +145,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         collaterabilityOfToken[token] = collaterabilityInDAI;
     }
 
-    function editTokenLiquidationBeneficiary(address token, address newBeneficiary) external onlyOwner {
+    function editTokenLiquidationBeneficiary(address token, address newBeneficiary) external notHaram onlyOwner {
         // Since beneficiary defaults to deadbeef it cannot be 0 if its been added before
         require(liquidationBeneficiaryOfToken[token] != address(0), "NOT_ADDED");
         require(token != address(CORE_TOKEN) && token != address(coreDAO), "CANNOT_MODIFY"); // Those should stay burned or floor doesnt hold
@@ -150,7 +164,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
     // Repays the loan supplying collateral and not adding it
     // solcurity: C48
-    function repayLoan(IERC20 token, uint256 amount) external nonEntered {
+    function repayLoan(IERC20 token, uint256 amount) external notHaram nonEntered {
         (uint256 totalDebt, ) = _liquidateDeliquent(msg.sender);
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)];
@@ -159,7 +173,6 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
         require(offeredCollateralValue > 0, "NOT_ENOUGH_COLLATERAL_OFFERED"); // covers both cases its a not supported token and 0 case
         require(totalDebt > 0, "NOT_DEBT");
-        require(tokenRetired[address(token)] == false, "TOKEN_RETIRED");
         require(offeredCollateralValue >= _accruedInterest, "INSUFFICIENT_AMOUNT"); // Has to be done because we have to update debt time
         require(amount > 0, "REPAYMENT_NOT_SUCESSFUL");
 
@@ -212,7 +225,6 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
         uint256 tokenCollateralAbility = collaterabilityOfToken[address(token)]; // essentially a whitelist
         require(token != DAI, "DAI_IS_ONLY_FOR_REPAYMENT");
-        require(tokenRetired[address(token)] == false, "TOKEN_RETIRED");
         require(tokenCollateralAbility != 0, "NOT_ACCEPTED");
         require(amount > 0, "!AMOUNT");
         require(user != address(0), "NO_ADDRESS");
@@ -248,13 +260,13 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         IERC20 tokenCollateral,
         uint256 amountCollateral,
         uint256 amountBorrow
-    ) external {
+    ) external notHaram {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         _supplyCollateral(userSummaryStorage, msg.sender, tokenCollateral, amountCollateral);
         _borrow(userSummaryStorage, msg.sender, amountBorrow);
     }
 
-    function borrow(uint256 amount) external {
+    function borrow(uint256 amount) external notHaram {
         DebtorSummary storage userSummaryStorage = debtorSummary[msg.sender];
         _borrow(userSummaryStorage, msg.sender, amount);
     }
@@ -330,7 +342,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
     // Liquidates people in default
     // solcurity: C48
-    function liquidateDelinquent(address user) external nonEntered returns (uint256 totalDebt, uint256 totalCollateral)  {
+    function liquidateDelinquent(address user) external notHaram nonEntered returns (uint256 totalDebt, uint256 totalCollateral)  {
         return _liquidateDeliquent(user);
     }
 
@@ -398,7 +410,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         require(success && (data.length == 0 || abi.decode(data, (bool))), "TRANSFER_FAILED");
     }
 
-    function reclaimAllCollateral() external {
+    function reclaimAllCollateral() external notHaram nonEntered {
         (uint256 totalDebt,) = _liquidateDeliquent(msg.sender);
 
         // Can only reclaim if there is collateral and 0 debt.
@@ -459,10 +471,6 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
 
         for (uint256 i = 0; i < userCollateralTokens.length; i++) {
             Collateral memory currentToken = userCollateralTokens[i];
-
-            if (tokenRetired[currentToken.collateralAddress]) {
-                continue; // If token is retired it has no value
-            }
 
             uint256 tokenDebit = collaterabilityOfToken[currentToken.collateralAddress] * currentToken.amountCollateral;
             collateral += tokenDebit;
