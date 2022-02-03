@@ -1,5 +1,5 @@
 const { expectRevert, time, BN } = require("@openzeppelin/test-helpers");
-const { assert, web3, ethers } = require("hardhat");
+const { assert, web3, ethers, artifacts } = require("hardhat");
 const { impersonate } = require("./utilities/impersonate.js");
 const hardhatConfig = require("../hardhat.config");
 const {
@@ -16,6 +16,7 @@ const DAO_TREASURY_ARTIFACT = artifacts.require("CoreDAOTreasury");
 const TRANSFER_CHECKER_ARTIFACT = artifacts.require("TransferChecker");
 const CORE_ARTIFACT = artifacts.require("CORE");
 const IERC20 = artifacts.require("IERC20");
+const ProxyAdmin = artifacts.require("ProxyAdmin");
 
 contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
   const CORE_RICH = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"; // deployer
@@ -25,6 +26,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
   const TREASURY_PROXY_ADDRESS = "0xe508a37101FCe81AB412626eE5F1A648244380de";
   const CLENDING_PROXY_ADDRESS = "0x54B276C8a484eBF2a244D933AF5FFaf595ea58c5";
   const CHUMP_ADDRESS = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B";
+  const PROXY_ADMIN_ADDRESS = "0x9cb1eEcCd165090a4a091209E8c3a353954B1f0f";
   // const CHUMP_ADDRESS = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436";
 
   let clend;
@@ -42,10 +44,11 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
 
     core = await IERC20.at("0x62359Ed7505Efc61FF1D56fEF82158CcaffA23D7");
     dai = await IERC20.at("0x6b175474e89094c44da98b954eedeac495271d0f");
+    proxy_admin = await ProxyAdmin.at(PROXY_ADMIN_ADDRESS);
 
     if (!TEST_MAINNET) {
-      // Deploy it all for tests locally
       clend = await CLENDING_ARTIFACT.new();
+      // Deploy it all for tests locally
       treasury = await DAO_TREASURY_ARTIFACT.new();
 
       const transferChecker = await TRANSFER_CHECKER_ARTIFACT.at(
@@ -60,6 +63,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     } else {
       // Use mainnet shit
       clend = await CLENDING_ARTIFACT.at(CLENDING_PROXY_ADDRESS);
+      // Upgrade it
       treasury = await DAO_TREASURY_ARTIFACT.at(TREASURY_PROXY_ADDRESS);
     }
 
@@ -74,6 +78,10 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     });
 
     if (TEST_MAINNET) {
+      // let new_clend_imp = await CLENDING_ARTIFACT.new();
+      let clend_latest_imp = await CLENDING_ARTIFACT.new();
+      await impersonate(CORE_DEPLOYER);
+      proxy_admin.upgrade(CLENDING_PROXY_ADDRESS, clend_latest_imp.address, { from: CORE_DEPLOYER });
       // Send chump 200 CORE and 10k DAI for collateral tests
       await impersonate(CORE_RICH);
       await core.transfer(CHUMP_ADDRESS, tBN18(200), { from: CORE_RICH });

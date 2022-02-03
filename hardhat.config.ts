@@ -115,6 +115,7 @@ const config: HardhatUserConfig = {
           },
         },
       },
+      {version: "0.5.3"},
     ],
   },
   spdxLicenseIdentifier: {
