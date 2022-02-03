@@ -52,7 +52,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     function intervenienteHomine() external {
-        require(isAngel[msg.sender],"HERETICAL");
+        require(isAngel[msg.sender] || msg.sender == owner(),"HERETICAL");
         holyIntervention = true;
     }
 
@@ -88,7 +88,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     // It should be noted that this will change everything backwards in time meaning some people might be liquidated right away
-    function changeLoanTerms(uint256 _yearlyPercentInterest, uint256 _loanDefaultThresholdPercent) public notHaram onlyOwner {
+    function changeLoanTerms(uint256 _yearlyPercentInterest, uint256 _loanDefaultThresholdPercent) public onlyOwner {
         require(_loanDefaultThresholdPercent > 100, "WOULD_LIQUIDATE");
 
         emit LoanTermsChanged(
@@ -104,7 +104,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         loanDefaultThresholdPercent = _loanDefaultThresholdPercent;
     }
 
-    function editTokenCollaterability(address token, uint256 newCollaterability) external notHaram onlyOwner {
+    function editTokenCollaterability(address token, uint256 newCollaterability) external onlyOwner {
         emit TokenCollaterabilityChanged(
             token,
             collaterabilityOfToken[token],
@@ -122,7 +122,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         address liquidationBeneficiary,
         uint256 collaterabilityInDAI,
         uint256 decimals
-    ) public notHaram onlyOwner {
+    ) public onlyOwner {
         /// 1e18 CORE = 5,500 e18 DAI
         /// 1units CORE = 5,500units DAI
         // $1DAI = 1e18 units
@@ -145,7 +145,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         collaterabilityOfToken[token] = collaterabilityInDAI;
     }
 
-    function editTokenLiquidationBeneficiary(address token, address newBeneficiary) external notHaram onlyOwner {
+    function editTokenLiquidationBeneficiary(address token, address newBeneficiary) external onlyOwner {
         // Since beneficiary defaults to deadbeef it cannot be 0 if its been added before
         require(liquidationBeneficiaryOfToken[token] != address(0), "NOT_ADDED");
         require(token != address(CORE_TOKEN) && token != address(coreDAO), "CANNOT_MODIFY"); // Those should stay burned or floor doesnt hold
