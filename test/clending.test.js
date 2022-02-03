@@ -354,7 +354,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     await assert((await clend.userTotalDebt(CHUMP_ADDRESS)).eq(tBN18(0)));
   });
 
-  it("Supply collateral correctly reduces accrued interest to 0 by adding less collateral and repaying with the rest", async () => {
+  it("Supply collateral doesn't reduces accrued interest to 0 since adding collateral doesn't repay interest", async () => {
     await initializeLendingContracts(20, 110, 5500);
     // This should have initiated CORE and COREDAO into the contract
 
@@ -377,29 +377,19 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     const balClendAfter = await core.balanceOf(clend.address);
 
     await assert(
-      (await clend.userTotalDebt(CHUMP_ADDRESS)).eq(amountCoreDaoDeposited)
+      (await clend.userTotalDebt(CHUMP_ADDRESS)).gt(amountCoreDaoDeposited)
     ); // total debt still the same
-    await assert((await clend.accruedInterest(CHUMP_ADDRESS)).eq(tBN18(0))); // interst should disappear
+    await assert((await clend.accruedInterest(CHUMP_ADDRESS)).gt(tBN18(0))); // interest should not disappear
 
     await assert(
       (await clend.userCollateralValue(CHUMP_ADDRESS)).gte(tBN18(14500)) &&
-        (await clend.userCollateralValue(CHUMP_ADDRESS)).lt(tBN18(14800))
-    ); // 10k + 5500-1000 so minimum 14500
+        (await clend.userCollateralValue(CHUMP_ADDRESS)).lt(tBN18(15800))
+    ); // 10k + 5500+1000 so minimum 15500
 
     const deltaBalanceTreasury = balTreasuryAfter.sub(balTreasuryBefore);
 
-    // accrued interest should get sent to treasury
-    await assert(balTreasuryAfter.gt(balTreasuryBefore));
-    // 1000 / 5500 = amount total it should sent at most but not less than 900/5500
-    const max = tBN18(1)
-      .mul(new BN(100000).div(new BN(5500)))
-      .div(new BN(100)); //1000/5500 in e2 and then div it out
-    const min = tBN18(1)
-      .mul(new BN(90000).div(new BN(5500)))
-      .div(new BN(100));
-    await assert(deltaBalanceTreasury.lt(max));
-    await assert(deltaBalanceTreasury.gt(min));
-
+    // accrued interest should not have been sent to treasury, since we paid 0 interests back
+    await assert(balTreasuryAfter.eq(balTreasuryBefore));
     await assert(balSenderAfter.eq(balSenderBefore.sub(tBN18(1))));
     await assert(
       balClendAfter.eq(balClendBefore.add(tBN18(1)).sub(deltaBalanceTreasury))
@@ -537,10 +527,10 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     await assert(balanceClendAfter.eq(balanceClendBefore.add(tBN18(10))));
   });
 
-  it("Paying interest from addCollateral should be from existing Collateral", async () => {
+  it("Paying interest from addCollateral should not be from existing Collateral", async () => {
     await initializeLendingContracts(20, 110, 5500);
     // This should have initiated CORE and COREDAO into the contract
-
+    const balTreasuryBefore = await coreDAO.balanceOf(treasury.address);
     const amountCoreDaoDeposited = tBN18(10000);
     const amountBorrowed = tBN18(8000);
     // add 10,000 DAI in collateral & borrow 8,000 DAI
@@ -592,10 +582,13 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     //  finalCollateralValue.gt(amountCoreDaoDeposited),
     //  "Collateral should have been added"
     //);
-    assert(balTreasuryAfter.gt(0), "Interest should have been paid");
     assert(
-      (await clend.accruedInterest(CHUMP_ADDRESS)).isZero(),
-      "User's Interest not set to 0"
+      balTreasuryAfter.eq(balTreasuryBefore),
+      "Interest shouldn't have been paid"
+    );
+    assert(
+      (await clend.accruedInterest(CHUMP_ADDRESS)).gte(0),
+      "User's Interest set to 0"
     );
   });
 
