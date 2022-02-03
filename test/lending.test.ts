@@ -604,7 +604,7 @@ describe("Lending", function () {
 
     beforeEach(async () => {
       await CORE.connect(alice).approve(cLending.address, collateral)
-      await cLending.connect(alice).addCollateral(constants.CORE, collateral)
+      await cLending.connect(alice).addCollateral(constants.CORE, collateral) // Add 20 CORE in collateral for Alice
     })
 
     it("revert if debt is not zero", async () => {
@@ -614,23 +614,27 @@ describe("Lending", function () {
 
     it("should allow to reclaim if no debt and token is retired", async () => {
       await cLending.connect(owner).editTokenCollaterability(CORE.address, 0)
-      await expect(cLending.liquidateDelinquent(await alice.getAddress())).to.not.emit(cLending, "Liquidation");
+      await expect(cLending.liquidateDelinquent(await alice.getAddress())).to.not.emit(cLending, "Liquidation")
 
-      const balanceBefore = await CORE.balanceOf(await alice.getAddress());
-      await cLending.connect(alice).reclaimAllCollateral();
+      const balanceBefore = await CORE.balanceOf(await alice.getAddress())
+      await expect(cLending.connect(alice).reclaimAllCollateral()).to.emit(cLending, "CollateralReclaimed")
       expect((await CORE.balanceOf(await alice.getAddress())).sub(balanceBefore)).to.be.eq(collateral)
-
     })
 
     it("liquidate if token is retired", async () => {
-      await cLending.connect(alice).borrow("1000")
+      await cLending.connect(alice).borrow("1000") // Borrow 1,000 DAI based on her 20 CORE in collateral worth 110,00 DAI
 
-      await cLending.connect(owner).editTokenCollaterability(CORE.address, 0);
-      await expect(cLending.connect(alice).reclaimAllCollateral()).to.be.revertedWith("NOTHING_TO_CLAIM")
+      const balanceBefore = await CORE.balanceOf(await alice.getAddress())
+
+      await cLending.connect(owner).editTokenCollaterability(CORE.address, 0)
+      await expect(cLending.connect(alice).reclaimAllCollateral()).to.emit(cLending, "Liquidation")
+      expect((await CORE.balanceOf(await alice.getAddress())).sub(balanceBefore)).to.be.eq(0)
     })
 
     it("revert if no collateral", async () => {
-      await expect(cLending.connect(bob).reclaimAllCollateral()).to.revertedWith("NOTHING_TO_CLAIM")
+      const balanceBefore = await CORE.balanceOf(await bob.getAddress())
+      await expect(cLending.connect(bob).reclaimAllCollateral()).to.not.emit(cLending, "CollateralReclaimed")
+      expect((await CORE.balanceOf(await bob.getAddress())).sub(balanceBefore)).to.be.eq(0)
     })
 
     it("should reclaim collateral and emit CollateralReclaimed event per token", async () => {

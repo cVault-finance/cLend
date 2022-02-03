@@ -22,6 +22,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     mapping(address => uint256) public collaterabilityOfToken;
     mapping(address => address) public liquidationBeneficiaryOfToken;
     mapping(address => bool) public tokenRetired; // Since the whitelist is based on collaterability of token
+    address[] public supportedCollateralTokens;
     // We cannot retire it by setting it to 0 hence this mapping was added
 
     address public coreDAOTreasury;
@@ -129,6 +130,7 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         emit NewTokenAdded(token, collaterabilityInDAI, liquidationBeneficiary, block.timestamp, msg.sender);
         liquidationBeneficiaryOfToken[token] = liquidationBeneficiary;
         collaterabilityOfToken[token] = collaterabilityInDAI;
+        supportedCollateralTokens.push(token);
     }
 
     function editTokenLiquidationBeneficiary(address token, address newBeneficiary) external onlyOwner {
@@ -298,30 +300,10 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         DebtorSummary storage userSummaryStorage,
         IERC20 token,
         uint256 amount
-    ) private returns (uint256 collateralIndex) {
+    ) private {
         // Insert or update operation
         require(amount != 0, "INVALID_AMOUNT");
-        bool collateralAdded;
-
-        // Loops over all provided collateral, checks if its there and if it is edit it
-        uint256 length = userSummaryStorage.collateral.length;
-        for (uint256 i = 0; i < length; i++) {
-            Collateral storage collateral = userSummaryStorage.collateral[i];
-
-            if (collateral.collateralAddress == address(token)) {
-                collateral.amountCollateral += amount;
-                collateralIndex = i;
-                collateralAdded = true;
-            }
-        }
-
-        // If it has not been already supplied we push it on
-        if (!collateralAdded) {
-            collateralIndex = userSummaryStorage.collateral.length;
-            userSummaryStorage.collateral.push(
-                Collateral({collateralAddress: address(token), amountCollateral: amount})
-            );
-        }
+        userSummaryStorage.positions[address(token)].amountCollateral += amount;
     }
 
     function _isLiquidable(uint256 totalDebt, uint256 totalCollateral) private view returns (bool) {
@@ -352,11 +334,10 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     // to burn/beneficiary + pays 0.5% to caller if caller is not the user being liquidated.
     function _liquidate(address user) private  {
         // solcurity: C2 - debtorSummary[user]
-        uint256 length = debtorSummary[user].collateral.length;
+        uint256 length = supportedCollateralTokens.length;
         for (uint256 i = 0; i < length; i++) {
-            uint256 amount = debtorSummary[user].collateral[i].amountCollateral;
-            address currentCollateralAddress = debtorSummary[user].collateral[i].collateralAddress;
-
+            address currentCollateralAddress = supportedCollateralTokens[i];
+            uint256 amount = debtorSummary[user].positions[currentCollateralAddress].amountCollateral;
             if (
                 msg.sender == user || // User liquidates himself no incentive.
                 currentCollateralAddress == address(coreDAO) || // no incentive for coreDAO to maintain floor, burned anyway
@@ -383,6 +364,12 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
             }
         }
 
+        // mappings are not emptied by deleting, need to loop thru all supportCollaterals
+        for (uint256 i = 0; i < supportedCollateralTokens.length; i++) {
+            address collateralAddress = supportedCollateralTokens[i];
+            delete debtorSummary[user].positions[collateralAddress];
+        }
+
         // remove all collateral and debt
         delete debtorSummary[user];
     }
@@ -406,20 +393,24 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         require(totalDebt == 0, "STILL_IN_DEBT");
 
         // solcurity: C2 - debtorSummary[msg.sender]
-        uint256 length = debtorSummary[msg.sender].collateral.length;
-        require(length > 0, "NOTHING_TO_CLAIM");
+        uint256 length = supportedCollateralTokens.length;
+        uint256 totalTransferred = 0;
 
         for (uint256 i = 0; i < length; i++) {
-            address collateralAddress = debtorSummary[msg.sender].collateral[i].collateralAddress;
-            uint256 amount = debtorSummary[msg.sender].collateral[i].amountCollateral;
-            require(amount > 0, "SAFETY_CHECK_FAIL");
+            address collateralAddress = supportedCollateralTokens[i];
+            uint256 amount = debtorSummary[msg.sender].positions[collateralAddress].amountCollateral;
 
-            _safeTransfer(
-                collateralAddress, //token
-                msg.sender, // to
-                amount //amount
-            );
-            emit CollateralReclaimed(collateralAddress, amount, block.timestamp, msg.sender);
+            // require(amount > 0, "SAFETY_CHECK_FAIL");
+            // NOTE: I'm removing a safety check here? What's the point of this check when we already know this loop is exhaustive?
+            if(amount > 0) {
+                _safeTransfer(
+                    collateralAddress, //token
+                    msg.sender, // to
+                    amount //amount
+                );
+                emit CollateralReclaimed(collateralAddress, amount, block.timestamp, msg.sender);
+                totalTransferred += amount;
+            }
         }
 
         // User doesnt have collateral anymore and paid off debt, bye
@@ -427,7 +418,12 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     function userCollaterals(address user) public view returns (Collateral[] memory) {
-        return debtorSummary[user].collateral;
+        Collateral[] memory usersPositions;
+        uint256 length = supportedCollateralTokens.length;
+        for (uint256 i = 0; i < length; i++) {
+            usersPositions[i] = debtorSummary[user].positions[supportedCollateralTokens[i]];
+        }
+        return usersPositions;
     }
 
     function userTotalDebt(address user) public view returns (uint256) {
@@ -435,37 +431,32 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
     }
 
     function accruedInterest(address user) public view returns (uint256) {
-        DebtorSummary memory userSummaryMemory = debtorSummary[user];
-        uint256 timeSinceLastLoan = block.timestamp - userSummaryMemory.timeLastBorrow;
+        uint256 timeSinceLastLoan = block.timestamp - debtorSummary[user].timeLastBorrow;
 
         // Formula :
         // Accrued interest =
         // (DAI borrowed * percent interest per year * time since last loan ) / 365 days * 100
         // + interest already pending ( from previous updates )
         return
-            ((userSummaryMemory.amountDAIBorrowed * yearlyPercentInterest * timeSinceLastLoan) / 365_00 days) + // 365days * 100 in seconds
-            userSummaryMemory.pendingInterests;
+            ((debtorSummary[user].amountDAIBorrowed * yearlyPercentInterest * timeSinceLastLoan) / 365_00 days) + // 365days * 100 in seconds
+            debtorSummary[user].pendingInterests;
     }
 
     function _wipeInterestOwed(DebtorSummary storage userSummaryStorage) private {
         userSummaryStorage.timeLastBorrow = block.timestamp;
-
-        // solcurity: C38
-        userSummaryStorage.pendingInterests = 0; // clear user pending interests
+        delete userSummaryStorage.pendingInterests; // clear user pending interests
     }
 
     function userCollateralValue(address user) public view returns (uint256 collateral) {
-        Collateral[] memory userCollateralTokens = debtorSummary[user].collateral;
-
-        for (uint256 i = 0; i < userCollateralTokens.length; i++) {
-            Collateral memory currentToken = userCollateralTokens[i];
-
-            if (tokenRetired[currentToken.collateralAddress]) {
+        uint256 length = supportedCollateralTokens.length;
+        
+        for (uint256 i = 0; i < length; i++) {
+            address collateralAddress = supportedCollateralTokens[i];
+            if (tokenRetired[collateralAddress]) {
                 continue; // If token is retired it has no value
             }
 
-            uint256 tokenDebit = collaterabilityOfToken[currentToken.collateralAddress] * currentToken.amountCollateral;
-            collateral += tokenDebit;
+            collateral += collaterabilityOfToken[collateralAddress] * debtorSummary[user].positions[collateralAddress].amountCollateral;
         }
     }
 }

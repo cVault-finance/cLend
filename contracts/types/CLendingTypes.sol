@@ -7,7 +7,7 @@ struct DebtorSummary {
     uint256 amountDAIBorrowed; // denominated in DAI units (1e18)
     uint256 pendingInterests; // interests accumulated from previous loans
     // Meaning 1 DAI = 1e18 here since DAI is 1e18
-    Collateral[] collateral;
+    mapping(address => Collateral) positions;
 }
 
 struct Collateral {
