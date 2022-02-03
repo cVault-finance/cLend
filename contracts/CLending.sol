@@ -8,8 +8,6 @@ import "./types/CLendingTypes.sol";
 import "./CLendingEventEmitter.sol";
 import "hardhat/console.sol";
 
-import "hardhat/console.sol";
-
 /**
  * @title Lending contract for CORE and CoreDAO
  * @author CVault Finance
