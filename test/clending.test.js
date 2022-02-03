@@ -44,7 +44,7 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
 
     core = await IERC20.at("0x62359Ed7505Efc61FF1D56fEF82158CcaffA23D7");
     dai = await IERC20.at("0x6b175474e89094c44da98b954eedeac495271d0f");
-    proxy_admin = await ProxyAdmin.at(PROXY_ADMIN_ADDRESS);
+    await impersonate(CORE_DEPLOYER);
 
     if (!TEST_MAINNET) {
       clend = await CLENDING_ARTIFACT.new();
@@ -63,6 +63,15 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
     } else {
       // Use mainnet shit
       clend = await CLENDING_ARTIFACT.at(CLENDING_PROXY_ADDRESS);
+      proxy_admin = await ProxyAdmin.at(PROXY_ADMIN_ADDRESS);
+      let clend_latest_imp = await CLENDING_ARTIFACT.new();
+      proxy_admin.upgrade(
+        CLENDING_PROXY_ADDRESS,
+        clend_latest_imp.address,
+        {
+          from: CORE_DEPLOYER,
+        }
+      );
       // Upgrade it
       treasury = await DAO_TREASURY_ARTIFACT.at(TREASURY_PROXY_ADDRESS);
     }
@@ -79,9 +88,6 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
 
     if (TEST_MAINNET) {
       // let new_clend_imp = await CLENDING_ARTIFACT.new();
-      let clend_latest_imp = await CLENDING_ARTIFACT.new();
-      await impersonate(CORE_DEPLOYER);
-      proxy_admin.upgrade(CLENDING_PROXY_ADDRESS, clend_latest_imp.address, { from: CORE_DEPLOYER });
       // Send chump 200 CORE and 10k DAI for collateral tests
       await impersonate(CORE_RICH);
       await core.transfer(CHUMP_ADDRESS, tBN18(200), { from: CORE_RICH });
