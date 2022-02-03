@@ -7,6 +7,8 @@ import "./CLendingLibrary.sol";
 import "./types/CLendingTypes.sol";
 import "./CLendingEventEmitter.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title Lending contract for CORE and CoreDAO
  * @author CVault Finance
@@ -220,6 +222,8 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         IERC20 token,
         uint256 amount
     ) private nonEntered {
+        console.log("");
+        console.log("_supplyCollateral()");
         // Clear previous borrows & collateral for this user if they are delinquent
         _liquidateDeliquent(user);
 
@@ -232,23 +236,10 @@ contract CLending is OwnableUpgradeable, cLendingEventEmitter {
         // Transfer the token from owner, important this is first because of interest repayment which can send
         token.safeTransferFrom(user, amount);
 
-        // Handling interest.
-        // Interest is paid by garnishing deposited tokens
-        uint256 accruedInterests = accruedInterest(user);
-
-        // eg. 6000 accrued interest and 1 CORE == 1
-        uint256 accruedInterestInToken = quantityOfTokenForValueInDAI(accruedInterests, tokenCollateralAbility);
-        if(accruedInterestInToken > 0) {
-            require(amount > accruedInterestInToken, "INSUFFICIENT_AMOUNT_TO_PAY_INTEREST");
-            amount -= accruedInterestInToken; // garnish interest
-            _safeTransfer(address(token), coreDAOTreasury, accruedInterestInToken);
-            _wipeInterestOwed(userSummaryStorage); // wipes accrued interests
-            emit InterestPaid(address(token), accruedInterests, block.timestamp, user);
-        }
-
         // We add collateral into the user struct
         _upsertCollateralInUserSummary(userSummaryStorage, token, amount);
         emit CollateralAdded(address(token), amount, block.timestamp, msg.sender);
+        console.log("");
     }
 
     function addCollateral(IERC20 token, uint256 amount) external {
