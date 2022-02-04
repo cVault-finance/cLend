@@ -19,8 +19,8 @@ const IERC20 = artifacts.require("IERC20");
 const ProxyAdmin = artifacts.require("MockProxyAdmin");
 
 contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
-  const CORE_RICH = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"; // deployer
-  const DAI_RICH = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"; // deployer
+  const CORE_RICH = "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"; // core burn address
+  const DAI_RICH = "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7"; // dai curve pool
   const CORE_DEPLOYER = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"; // deployer
   const BURN_ADDRESS = "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF";
   const TREASURY_PROXY_ADDRESS = "0xe508a37101FCe81AB412626eE5F1A648244380de";
@@ -90,8 +90,9 @@ contract("cLending Tests", ([x3, revert, james, joe, john, trashcan]) => {
       // let new_clend_imp = await CLENDING_ARTIFACT.new();
       // Send chump 200 CORE and 10k DAI for collateral tests
       await impersonate(CORE_RICH);
+      await impersonate(DAI_RICH);
       await core.transfer(CHUMP_ADDRESS, tBN18(200), { from: CORE_RICH });
-      await dai.transfer(CHUMP_ADDRESS, tBN18(10000), { from: CORE_RICH });
+      await dai.transfer(CHUMP_ADDRESS, tBN18(10000), { from: DAI_RICH });
 
       // Get 0.00011 lp2 in some random chump's wallet
       const LP2_VOUCHER_ADDRESS = "0xb8ee07b5ed2ff9dae6c504c9dee84151f844a591";
