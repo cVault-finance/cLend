@@ -63,9 +63,9 @@ describe("vouchers migration", async () => {
     await Lp3.approve(VoucherLp3.address, ethers.constants.MaxUint256)
 
     const revertMsg = "You are too late, sorry";
-    await expect(VoucherLp1.wrap()).to.be.revertedWith(revertMsg)
-    await expect(VoucherLp2.wrap()).to.be.revertedWith(revertMsg)
-    await expect(VoucherLp3.wrap()).to.be.revertedWith(revertMsg)
+    await expect(VoucherLp1.connect(signer).wrap()).to.be.revertedWith(revertMsg)
+    await expect(VoucherLp2.connect(signer).wrap()).to.be.revertedWith(revertMsg)
+    await expect(VoucherLp3.connect(signer).wrap()).to.be.revertedWith(revertMsg)
   })
 
   it("should migrate", async () => {
