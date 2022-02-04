@@ -14,6 +14,7 @@ import "hardhat-deploy"
 import "hardhat-dependency-compiler"
 import "./tasks"
 import "@nomiclabs/hardhat-truffle5"
+require("hardhat-log-remover");
 
 import { HardhatNetworkHDAccountsUserConfig, HardhatUserConfig } from "hardhat/types"
 
