@@ -39,7 +39,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     address: CLending.address,
   })
 
-  
+  /*
   ///// Example of upgrading
   await deploy("CLendingImplementationFix", {
     from: deployer,
@@ -51,7 +51,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const CLendingImplementationFix = await ethers.getContract<CLending>("CLendingImplementationFix")
   const TeamProxy = await ethers.getContractAt<MockProxyAdmin>("MockProxyAdmin", "0x9cb1eEcCd165090a4a091209E8c3a353954B1f0f")
   await TeamProxy.connect(cvaultDeployer).upgrade(CLending.address, CLendingImplementationFix.address)
-  //////
+  //////*/
 
   const CoreDAO = await ethers.getContract("CoreDAO")
   const CORE = await ethers.getContractAt<CORE>("CORE", constants.CORE)

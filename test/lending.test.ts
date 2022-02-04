@@ -6,6 +6,8 @@ import { constants } from "../constants"
 import { BigNumber, Signer, utils, constants as EtherConstants } from "ethers"
 
 const DEPLOYER = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"
+const CORE_RICH = "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"
+const DAI_RICH = "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7"
 
 describe("Lending", function () {
   let cLending: CLending
@@ -39,12 +41,14 @@ describe("Lending", function () {
     DAI = await ethers.getContractAt<IERC20>("IERC20", constants.DAI)
 
     // Give some CORE to alice
-    await impersonate(constants.CORE_MULTISIG)
-    const coreMultiSigSigner = await ethers.getSigner(constants.CORE_MULTISIG)
-    await CORE.connect(coreMultiSigSigner).transfer(await alice.getAddress(), getBigNumber(123))
+    await impersonate(CORE_RICH)
+    const coreRichSigner = await ethers.getSigner(CORE_RICH)
+    await CORE.connect(coreRichSigner).transfer(await alice.getAddress(), getBigNumber(123))
 
     // Fund the lending contract with DAI
-    await DAI.connect(coreMultiSigSigner).transfer(cLending.address, await DAI.balanceOf(coreMultiSigSigner.address))
+    await impersonate(DAI_RICH)
+    const daiRichSigner = await ethers.getSigner(DAI_RICH)
+    await DAI.connect(daiRichSigner).transfer(cLending.address, await DAI.balanceOf(DAI_RICH))
 
     await impersonate(DEPLOYER)
     owner = await ethers.getSigner(DEPLOYER)
@@ -614,18 +618,17 @@ describe("Lending", function () {
 
     it("should allow to reclaim if no debt and token is retired", async () => {
       await cLending.connect(owner).editTokenCollaterability(CORE.address, 0)
-      await expect(cLending.liquidateDelinquent(await alice.getAddress())).to.not.emit(cLending, "Liquidation");
+      await expect(cLending.liquidateDelinquent(await alice.getAddress())).to.not.emit(cLending, "Liquidation")
 
-      const balanceBefore = await CORE.balanceOf(await alice.getAddress());
-      await cLending.connect(alice).reclaimAllCollateral();
+      const balanceBefore = await CORE.balanceOf(await alice.getAddress())
+      await cLending.connect(alice).reclaimAllCollateral()
       expect((await CORE.balanceOf(await alice.getAddress())).sub(balanceBefore)).to.be.eq(collateral)
-
     })
 
     it("liquidate if token is retired", async () => {
       await cLending.connect(alice).borrow("1000")
 
-      await cLending.connect(owner).editTokenCollaterability(CORE.address, 0);
+      await cLending.connect(owner).editTokenCollaterability(CORE.address, 0)
       await expect(cLending.connect(alice).reclaimAllCollateral()).to.be.revertedWith("NOTHING_TO_CLAIM")
     })
 
