@@ -58,9 +58,9 @@ describe("vouchers migration", async () => {
     const Lp2 = await ethers.getContractAt<IERC20>("IERC20", "0x6fad7D44640c5cd0120DEeC0301e8cf850BecB68")
     const Lp3 = await ethers.getContractAt<IERC20>("IERC20", "0x01AC08E821185b6d87E68c67F9dc79A8988688EB")
 
-    await Lp1.approve(VoucherLp1.address, ethers.constants.MaxUint256);
-    await Lp2.approve(VoucherLp2.address, ethers.constants.MaxUint256)
-    await Lp3.approve(VoucherLp3.address, ethers.constants.MaxUint256)
+    await Lp1.connect(signer).approve(VoucherLp1.address, ethers.constants.MaxUint256);
+    await Lp2.connect(signer).approve(VoucherLp2.address, ethers.constants.MaxUint256)
+    await Lp3.connect(signer).approve(VoucherLp3.address, ethers.constants.MaxUint256)
 
     const revertMsg = "You are too late, sorry";
     await expect(VoucherLp1.connect(signer).wrap()).to.be.revertedWith(revertMsg)
