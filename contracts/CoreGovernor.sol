@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol
 import "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
 import "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
 import "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
+//import "@openzeppelin/contracts/governance/extensions/GovernorPreventLateQuorum.sol";
 
 contract CoreGovernor is
     Governor,
@@ -15,17 +16,21 @@ contract CoreGovernor is
     GovernorVotes,
     GovernorVotesQuorumFraction,
     GovernorTimelockControl
+    /*GovernorPreventLateQuorum,*/
 {
     constructor(ERC20Votes _token, TimelockController _timelock)
-        Governor("MyGovernor")
+        Governor("CoreGovernor")
         GovernorSettings(
-            1, /* 1 block */
-            45818, /* 1 week */
-            0
+            1, // voting delay: 1 block
+            45818, // voting period: 1 week
+            0 // minimum required token amount to create a proposal
         )
         GovernorVotes(_token)
         GovernorVotesQuorumFraction(4)
         GovernorTimelockControl(_timelock)
+
+        // Ensures there is a minimum voting period after quorum is reached as a security protection against large voters.
+        //GovernorPreventLateQuorum(5000) // extra approximative 24h extension
     {}
 
     // The following functions are overrides required by Solidity.

@@ -91,9 +91,6 @@ contract CoreVaultV3 is OwnableUpgradeSafe {
     // === end upgrade 1 state ===
 
     // === Start Upgrade 2 state ===
-    CoreIERC20 public immutable COREDAO;
-    ICoreDAOTreasury public immutable TREASURY;
-
     ///////////////////////////////////////////////
     // ERC20Votes Data Section
     string public constant symbol = "stCoreDAO";
@@ -114,44 +111,7 @@ contract CoreVaultV3 is OwnableUpgradeSafe {
     mapping(address => address) private _delegates;
     mapping(address => Checkpoint[]) private _checkpoints;
     Checkpoint[] private _totalSupplyCheckpoints;
-
     // === end upgrade 2 state ===
-
-    // == start upgrade 2 functions ==
-    constructor(CoreIERC20 _coreDao, ICoreDAOTreasury _treasury) public {
-        COREDAO = _coreDao;
-        TREASURY = _treasury;
-    }
-
-    /// @dev Upgrade all user's pool core voucher lp to coredao using the treasure.
-    /// The LP are directly sent to the treasure and coredao minted.
-    /// The resulting minted amount is then staked on user's behalf into the new coredao pool.
-    function migrateVouchers() external {
-        require(poolInfo.length == 4, "WRONG_POOL_COUNT");
-        require(address(poolInfo[COREDAO_PID].token) == address(COREDAO), "WRONG_TOKEN");
-
-        _withdraw(0, userInfo[0][msg.sender].amount, msg.sender, address(TREASURY));
-        _withdraw(1, userInfo[1][msg.sender].amount, msg.sender, address(TREASURY));
-        _withdraw(2, userInfo[2][msg.sender].amount, msg.sender, address(TREASURY));
-
-        uint256 coreDaoAmount = TREASURY.wrapAllVouchersAtomic(address(this));
-        require(coreDaoAmount > 0, "NOTHING_MIGRATED");
-
-        // Deposit the CoreDAO amount into the pool, for the user
-        UserInfo storage user = userInfo[COREDAO_PID][msg.sender];
-        PoolInfo storage pool = poolInfo[COREDAO_PID];
-        massUpdatePools();
-        updateAndPayOutPending(COREDAO_PID, msg.sender);
-
-        // No need to transfer any coreDao here since there were already transfered during wrapAllVouchersAtomic
-        user.amount = user.amount.add(coreDaoAmount);
-        user.rewardDebt = user.amount.mul(pool.accCorePerShare).div(1e12);
-
-        _mint(msg.sender, coreDaoAmount);
-        emit Deposit(msg.sender, COREDAO_PID, coreDaoAmount);
-    }
-
-    // == end upgrade 2 functions ==
 
     // Returns fees generated since start of this contract
     function averageFeesPerBlockSinceStart() external view returns (uint256 averagePerBlock) {

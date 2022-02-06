@@ -3,7 +3,8 @@ import { DeployFunction } from "hardhat-deploy/types"
 import { ethers, network } from "hardhat"
 import { CoreDAO, CoreDAOTreasury, CoreGovernor, CoreVaultV3 } from "../types"
 
-const TIMELOCK_CONTROLLER_MIN_DELAY = 3 * 60 * 60 * 24 // 3 days
+
+const TIMELOCK_CONTROLLER_MIN_DELAY = 2 * 60 * 60 * 24 // 2 days - Same as ENSDomains configuration
 const VAULT = "0xC5cacb708425961594B63eC171f4df27a9c0d8c9" // Now hold the ERC20Votes implementation for stCoreDAO (Voting weight)
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
@@ -15,7 +16,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   await deploy("TimelockController", {
     from: deployer,
-    args: [TIMELOCK_CONTROLLER_MIN_DELAY, [], []],
+    args: [TIMELOCK_CONTROLLER_MIN_DELAY, [], [ethers.constants.AddressZero]],
     log: true,
     deterministicDeployment: false,
   })
@@ -44,7 +45,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // The Executor role is in charge of executing already available operations: we can assign this role
   // to the special zero address to allow anyone to execute (if operations can be particularly time sensitive,
   // the Governor should be made Executor instead).
-  await TimelockController.connect(deployerSigner).grantRole(EXECUTOR_ROLE, ethers.constants.AddressZero)
+  //await TimelockController.connect(deployerSigner).grantRole(EXECUTOR_ROLE, ethers.constants.AddressZero)
 
   // Lastly, there is the Admin role, which can grant and revoke the two previous roles: this is a
   // very sensitive role that will be granted automatically to both deployer and timelock itself, but
