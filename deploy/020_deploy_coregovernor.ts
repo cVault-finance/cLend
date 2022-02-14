@@ -1,7 +1,7 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { DeployFunction } from "hardhat-deploy/types"
 import { ethers, network } from "hardhat"
-import { CoreDAO, CoreDAOTreasury, CoreGovernor, CoreVaultV3 } from "../types"
+import { CoreDAO, CoreDAOTreasury, CoreGovernor, CoreVaultWithVoting } from "../types"
 
 
 const TIMELOCK_CONTROLLER_MIN_DELAY = 2 * 60 * 60 * 24 // 2 days - Same as ENSDomains configuration
@@ -12,8 +12,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deploy } = deployments
 
   const { deployer } = await getNamedAccounts()
-  const CoreDAOTreasury = await ethers.getContract<CoreDAOTreasury>("CoreDAOTreasury")
-
+  
   await deploy("TimelockController", {
     from: deployer,
     args: [TIMELOCK_CONTROLLER_MIN_DELAY, [], [ethers.constants.AddressZero]],
@@ -55,4 +54,4 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
 export default func
 func.tags = ["CoreGovernor"]
-func.dependencies = ["CoreDAOTreasury"]
+func.dependencies = ["CoreVaultWithVoting"]

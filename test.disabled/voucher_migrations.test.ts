@@ -1,7 +1,7 @@
 import { expect } from "chai"
 import { Signer, utils } from "ethers"
 import hre, { ethers, deployments, network } from "hardhat"
-import { CLending, CoreDAO, CoreDAOTreasury, CoreVaultV3, IERC20, MockProxyAdmin, VoucherLP } from "../types"
+import { CLending, CoreDAO, CoreDAOTreasury, CoreVaultWithVoting, IERC20, MockProxyAdmin, VoucherLP } from "../types"
 import { impersonate } from "./utilities"
 
 const DEPLOYER = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436"

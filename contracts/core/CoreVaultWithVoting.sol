@@ -29,7 +29,7 @@ interface ICoreDAOTreasury {
 
 // Core Vault distributes fees equally amongst staked pools
 // Have fun reading it. Hopefully it's bug-free. God bless.
-contract CoreVaultV3 is OwnableUpgradeSafe {
+contract CoreVaultWithVoting is OwnableUpgradeSafe {
     using SafeMath for uint256;
     using SafeERC20 for CoreIERC20;
 

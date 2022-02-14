@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol
 import "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
 import "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
 import "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
-//import "@openzeppelin/contracts/governance/extensions/GovernorPreventLateQuorum.sol";
+import "./GovernorPreventLateQuorum.sol";
 
 contract CoreGovernor is
     Governor,
@@ -15,8 +15,8 @@ contract CoreGovernor is
     GovernorCountingSimple,
     GovernorVotes,
     GovernorVotesQuorumFraction,
-    GovernorTimelockControl
-    /*GovernorPreventLateQuorum,*/
+    GovernorTimelockControl,
+    GovernorPreventLateQuorum
 {
     constructor(ERC20Votes _token, TimelockController _timelock)
         Governor("CoreGovernor")
@@ -30,7 +30,7 @@ contract CoreGovernor is
         GovernorTimelockControl(_timelock)
 
         // Ensures there is a minimum voting period after quorum is reached as a security protection against large voters.
-        //GovernorPreventLateQuorum(5000) // extra approximative 24h extension
+        GovernorPreventLateQuorum(5000) // extra approximative 24h extension
     {}
 
     // The following functions are overrides required by Solidity.
@@ -76,6 +76,19 @@ contract CoreGovernor is
 
     function proposalThreshold() public view override(Governor, GovernorSettings) returns (uint256) {
         return super.proposalThreshold();
+    }
+
+    function proposalDeadline(uint256 proposalId) public view override(IGovernor, Governor, GovernorPreventLateQuorum) returns (uint256) {
+        return super.proposalDeadline(proposalId);
+    }
+
+    function _castVote(
+        uint256 proposalId,
+        address account,
+        uint8 support,
+        string memory reason
+    ) internal override(Governor, GovernorPreventLateQuorum) returns (uint256) {
+        return super._castVote(proposalId, account, support, reason);
     }
 
     function _execute(
