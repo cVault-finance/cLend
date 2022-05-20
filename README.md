@@ -1,4 +1,4 @@
-# CORE cLend
+# CORE cLend 🌭
 
 Contracts for the CORE DAO and Lending
 
